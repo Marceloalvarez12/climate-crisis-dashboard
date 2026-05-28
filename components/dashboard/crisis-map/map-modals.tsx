@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { Users, Clock, MapPinned, Twitter, Send, Phone, CheckCircle2, Truck, ShieldAlert, ShieldCheck, Loader2, ExternalLink } from "lucide-react"
+import { Users, Clock, MapPinned, Twitter, Send, Phone, CheckCircle2, Truck, ShieldAlert, ShieldCheck, Loader2, ExternalLink, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { generateIncidentPdf } from "@/lib/pdf-generator"
 import {
   IncidentIcon,
   SourceIcon,
@@ -167,6 +168,29 @@ export function IncidentDetailModal({
   onClose,
   onOpenDeploy,
 }: IncidentDetailModalProps) {
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const handleDownloadReport = async (inc: Incident) => {
+    setIsGenerating(true)
+    try {
+      const pdfData = {
+        id: inc.id,
+        tipo: inc.type,
+        severidad: inc.severity,
+        ubicacion: inc.location,
+        afectados: inc.affectedPeople,
+        timestamp: inc.timestamp ? new Date(inc.timestamp).toISOString() : new Date().toISOString(),
+        resumenIA: inc.sourceDetails?.ai_analysis?.reasoning || inc.sourceDetails?.content || "Análisis no disponible",
+      }
+      const aiKey = inc.sourceDetails?.ai_analysis?.arkiv_entity_key || inc.sourceDetails?.arkiv_entity_key
+      await generateIncidentPdf(pdfData, aiKey, inc.arkiv_key)
+    } catch (err) {
+      console.error("Error generating incident PDF:", err)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[9999]">
@@ -224,8 +248,27 @@ export function IncidentDetailModal({
               </div>
 
               {/* On-Chain Verification / Dispatch Action */}
-              {incident.estado === "atendido" && incident.arkiv_key ? (
-                <OnChainVerifier arkivKey={incident.arkiv_key} />
+              {incident.estado === "atendido" ? (
+                <div className="space-y-3">
+                  {incident.arkiv_key && <OnChainVerifier arkivKey={incident.arkiv_key} />}
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 py-5"
+                    onClick={() => handleDownloadReport(incident)}
+                    disabled={isGenerating}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Generando PDF...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-5 w-5" />
+                        Descargar Reporte Oficial (PDF)
+                      </>
+                    )}
+                  </Button>
+                </div>
               ) : (
                 <div className="flex flex-col gap-2">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-5" onClick={onOpenDeploy}>

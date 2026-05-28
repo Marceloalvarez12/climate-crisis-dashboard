@@ -186,7 +186,11 @@ function tableRow(doc: jsPDF, y: number, label: string, value: string): number {
   return y + rowH
 }
 
-export async function generateIncidentPdf(incidente: IncidenteData, entityKey: string) {
+export async function generateIncidentPdf(
+  incidente: IncidenteData,
+  aiKey?: string,
+  dispatchKey?: string
+) {
   const doc = new jsPDF({ orientation: "portrait", unit: "in", format: "letter" })
   let y = M
 
@@ -236,39 +240,136 @@ export async function generateIncidentPdf(incidente: IncidenteData, entityKey: s
   doc.text(aiLines, M + 0.12, y + 0.3)
   y += aiH + 0.35
 
-  // Blockchain Seal
-  const sH = 1.05
-  doc.setFillColor(...C.slate50)
-  doc.setDrawColor(...C.slate200)
-  doc.roundedRect(M, y, CW, sH, 0.04, 0.04, "FD")
-  try {
+  // Blockchain Seals
+  const hasAiSeal = !!aiKey && aiKey !== "—"
+  const hasDispatchSeal = !!dispatchKey && dispatchKey !== "—"
+
+  if (hasAiSeal || hasDispatchSeal) {
+    y = sectionTitle(doc, y, "REGISTRO DE SEGURIDAD ON-CHAIN (ARKIV NETWORK)")
+    
+    const boxH = 1.15
     const QRCode = (await import("qrcode")).default
-    const qr = await QRCode.toDataURL(`https://data.arkiv.network/${entityKey}`, { width: 200, margin: 1 })
-    doc.addImage(qr, "PNG", M + 0.12, y + 0.12, 0.75, 0.75)
-  } catch { /* QR fallback */ }
-  const tx = M + 1.05
-  doc.setFontSize(8.5)
-  doc.setFont("helvetica", "bold")
-  doc.setTextColor(...C.slate900)
-  doc.text("Sello de Auditoria Criptografica", tx, y + 0.24)
-  doc.setFontSize(6.5)
-  doc.setFont("helvetica", "normal")
-  doc.setTextColor(...C.slate600)
-  const desc = doc.splitTextToSize(
-    "Este documento esta protegido criptograficamente. Escanee el codigo QR para verificar la inmutabilidad de los datos en la red Arkiv Blockchain (Testnet Red Braga).",
-    CW - 1.3
-  )
-  doc.text(desc, tx, y + 0.4)
-  doc.setDrawColor(...C.slate200)
-  hLine(doc, y + 0.65, tx, PW - M - 0.12)
-  doc.setFontSize(5.5)
-  doc.setFont("courier", "normal")
-  doc.setTextColor(...C.slate400)
-  doc.text("Entity Key (Blockchain Hash)", tx, y + 0.78)
-  doc.setFontSize(6.5)
-  doc.setTextColor(...C.slate900)
-  const dk = entityKey.length > 64 ? entityKey.slice(0, 64) + "..." : entityKey
-  doc.text(dk, tx, y + 0.9)
+
+    if (hasAiSeal && hasDispatchSeal) {
+      // Draw side-by-side boxes
+      const boxW = (CW - 0.25) / 2
+      
+      // AI Seal Box
+      let bx = M
+      doc.setFillColor(...C.slate50)
+      doc.setDrawColor(...C.emerald700)
+      doc.setLineWidth(0.01)
+      doc.roundedRect(bx, y, boxW, boxH, 0.04, 0.04, "FD")
+      
+      try {
+        const qr = await QRCode.toDataURL(`https://braga.explorer.arkiv.network/entity/${aiKey}`, { width: 150, margin: 1 })
+        doc.addImage(qr, "PNG", bx + 0.08, y + 0.08, 0.65, 0.65)
+      } catch {}
+      
+      let tx = bx + 0.8
+      doc.setFontSize(7.5)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...C.slate900)
+      doc.text("Sello Auditoría IA", tx, y + 0.18)
+      doc.setFontSize(6)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...C.slate600)
+      doc.text("Detección y análisis autónomo", tx, y + 0.3)
+      doc.text("registrado en red Braga.", tx, y + 0.4)
+      
+      doc.setFontSize(5)
+      doc.setFont("courier", "normal")
+      doc.setTextColor(...C.slate400)
+      doc.text("AI Hash (Arkiv Key):", tx, y + 0.58)
+      doc.setTextColor(...C.slate900)
+      const truncAi = aiKey!.length > 28 ? aiKey!.slice(0, 12) + ".." + aiKey!.slice(-12) : aiKey!
+      doc.text(truncAi, tx, y + 0.68)
+      doc.setFontSize(5.5)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...C.emerald700)
+      doc.text("🛡️ VERIFICADO IA", tx, y + 0.85)
+
+      // Dispatch Seal Box
+      bx = M + boxW + 0.25
+      doc.setFillColor(...C.slate50)
+      doc.setDrawColor(...C.blue700)
+      doc.setLineWidth(0.01)
+      doc.roundedRect(bx, y, boxW, boxH, 0.04, 0.04, "FD")
+      
+      try {
+        const qr = await QRCode.toDataURL(`https://braga.explorer.arkiv.network/entity/${dispatchKey}`, { width: 150, margin: 1 })
+        doc.addImage(qr, "PNG", bx + 0.08, y + 0.08, 0.65, 0.65)
+      } catch {}
+      
+      tx = bx + 0.8
+      doc.setFontSize(7.5)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...C.slate900)
+      doc.text("Sello Despacho", tx, y + 0.18)
+      doc.setFontSize(6)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...C.slate600)
+      doc.text("Despacho de recursos", tx, y + 0.3)
+      doc.text("y firma de operador.", tx, y + 0.4)
+      
+      doc.setFontSize(5)
+      doc.setFont("courier", "normal")
+      doc.setTextColor(...C.slate400)
+      doc.text("Dispatch Hash (Arkiv Key):", tx, y + 0.58)
+      doc.setTextColor(...C.slate900)
+      const truncDisp = dispatchKey!.length > 28 ? dispatchKey!.slice(0, 12) + ".." + dispatchKey!.slice(-12) : dispatchKey!
+      doc.text(truncDisp, tx, y + 0.68)
+      doc.setFontSize(5.5)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...C.blue700)
+      doc.text("🛡️ VERIFICADO COMANDO", tx, y + 0.85)
+
+      y += boxH + 0.25
+    } else {
+      // Draw single box
+      const singleKey = hasAiSeal ? aiKey! : dispatchKey!
+      const label = hasAiSeal ? "Sello de Auditoría IA" : "Sello de Despacho Operativo"
+      const sub = hasAiSeal ? "Detección y análisis autónomo registrado en red Braga." : "Despacho de recursos y firma de operador."
+      const badge = hasAiSeal ? "🛡️ VERIFICADO IA" : "🛡️ VERIFICADO COMANDO"
+      const badgeColor = hasAiSeal ? C.emerald700 : C.blue700
+
+      doc.setFillColor(...C.slate50)
+      doc.setDrawColor(...C.slate200)
+      doc.setLineWidth(0.01)
+      doc.roundedRect(M, y, CW, boxH, 0.04, 0.04, "FD")
+      
+      try {
+        const qr = await QRCode.toDataURL(`https://braga.explorer.arkiv.network/entity/${singleKey}`, { width: 150, margin: 1 })
+        doc.addImage(qr, "PNG", M + 0.12, y + 0.12, 0.75, 0.75)
+      } catch {}
+      
+      const tx = M + 1.05
+      doc.setFontSize(8.5)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...C.slate900)
+      doc.text(label, tx, y + 0.22)
+      doc.setFontSize(6.5)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...C.slate600)
+      doc.text(sub, tx, y + 0.35)
+      
+      doc.setFontSize(5.5)
+      doc.setFont("courier", "normal")
+      doc.setTextColor(...C.slate400)
+      doc.text("Entity Key (Blockchain Hash):", tx, y + 0.58)
+      doc.setFontSize(6.5)
+      doc.setTextColor(...C.slate900)
+      const displayKey = singleKey.length > 64 ? singleKey.slice(0, 64) + "..." : singleKey
+      doc.text(displayKey, tx, y + 0.7)
+
+      doc.setFontSize(6.5)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...badgeColor)
+      doc.text(badge, tx, y + 0.9)
+
+      y += boxH + 0.25
+    }
+  }
 
   doc.save(`Reporte_Oficial_${incidente.id.slice(0, 8)}.pdf`)
 }
@@ -282,6 +383,7 @@ export async function generateIncidentPdf(incidente: IncidenteData, entityKey: s
 
 export function generateGeneralReport(
   incidents: IncidentRow[],
+  historicalIncidents: IncidentRow[],
   recursos: RecursoRow[],
   analytics: AnalyticsData
 ) {
@@ -341,7 +443,7 @@ export function generateGeneralReport(
   y += boxH + 0.3
 
   // ── TABLA 1: Incidentes Detectados ──
-  y = sectionTitle(doc, y, "REGISTRO DE INCIDENTES DETECTADOS")
+  y = sectionTitle(doc, y, "REGISTRO DE INCIDENTES DETECTADOS (ACTIVOS)")
 
   // Column definitions for incidents table (landscape = more space)
   const iCols = [
@@ -351,7 +453,7 @@ export function generateGeneralReport(
     { label: "Severidad",       w: LCW * 0.09 },
     { label: "Afectados",       w: LCW * 0.08 },
     { label: "Fuente",          w: LCW * 0.08 },
-    { label: "Hash Arkiv",      w: LCW * 0.21 },
+    { label: "Hash Arkiv IA",   w: LCW * 0.21 },
     { label: "Estado",          w: LCW * 0.10 },
   ]
   const iRowH = 0.22
@@ -389,7 +491,7 @@ export function generateGeneralReport(
   } else {
     incidents.forEach((inc, idx) => {
       // Check page break (landscape)
-      if (y + iRowH > LH - M - 1.5) {
+      if (y + iRowH > LH - M - 0.5) {
         doc.addPage()
         y = M + 0.2
       }
@@ -437,7 +539,7 @@ export function generateGeneralReport(
       // Hash Arkiv
       doc.setFont("courier", "normal")
       doc.setFontSize(5)
-      const key = inc.arkiv_key || (inc.fuente_detalles?.arkiv_entity_key as string) || "—"
+      const key = (inc.fuente_detalles?.ai_analysis as any)?.arkiv_entity_key || inc.fuente_detalles?.arkiv_entity_key as string || "—"
       const displayKey = key.length > 30 ? key.slice(0, 28) + ".." : key
       doc.text(displayKey, rx + 0.06, y + 0.14)
       doc.setFontSize(6)
@@ -452,8 +554,116 @@ export function generateGeneralReport(
     y += 0.25
   }
 
-  // ── TABLA 2: Recursos Desplegados ──
-  // Check if we need a new page
+  // ── TABLA 2: Historial de Incidentes Auditados (On-Chain) ──
+  if (y + 0.8 > LH - M - 0.5) {
+    doc.addPage()
+    y = M + 0.2
+  }
+
+  y = sectionTitle(doc, y, "HISTORIAL DE INCIDENTES AUDITADOS (ON-CHAIN)")
+
+  const hCols = [
+    { label: "Hora Res.",        w: LCW * 0.12 },
+    { label: "Ubicacion",        w: LCW * 0.18 },
+    { label: "Tipo",            w: LCW * 0.08 },
+    { label: "Severidad",       w: LCW * 0.08 },
+    { label: "Afectados",       w: LCW * 0.08 },
+    { label: "Hash IA (Arkiv)", w: LCW * 0.22 },
+    { label: "Hash Despacho",   w: LCW * 0.24 },
+  ]
+  const hRowH = 0.22
+
+  // Header row
+  doc.setFillColor(...C.slate800)
+  xPos = M
+  hCols.forEach(col => {
+    doc.rect(xPos, y, col.w, hRowH, "F")
+    xPos += col.w
+  })
+  doc.setDrawColor(...C.slate200)
+  doc.rect(M, y, LCW, hRowH)
+
+  xPos = M
+  doc.setFontSize(6)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(...C.white)
+  hCols.forEach(col => {
+    doc.text(col.label, xPos + 0.06, y + 0.14)
+    xPos += col.w
+  })
+  y += hRowH
+
+  if (!historicalIncidents || historicalIncidents.length === 0) {
+    doc.setFillColor(...C.slate50)
+    doc.setDrawColor(...C.slate200)
+    doc.rect(M, y, LCW, 0.3, "FD")
+    doc.setFontSize(7)
+    doc.setFont("times", "italic")
+    doc.setTextColor(...C.slate500)
+    doc.text("No hay incidentes en el historial.", M + LCW / 2, y + 0.19, { align: "center" })
+    y += 0.5
+  } else {
+    historicalIncidents.forEach((inc, idx) => {
+      if (y + hRowH > LH - M - 0.5) {
+        doc.addPage()
+        y = M + 0.2
+      }
+
+      const isAlt = idx % 2 === 0
+      doc.setFillColor(...(isAlt ? C.white : C.slate50))
+      doc.setDrawColor(...C.slate200)
+      let rx = M
+      hCols.forEach(col => {
+        doc.rect(rx, y, col.w, hRowH, "FD")
+        rx += col.w
+      })
+
+      doc.setFontSize(6)
+      doc.setFont("courier", "normal")
+      doc.setTextColor(...C.slate800)
+
+      rx = M
+      // Hora Res.
+      doc.text(fmtDate(inc.updated_at || inc.created_at), rx + 0.06, y + 0.14)
+      rx += hCols[0].w
+      // Ubicacion
+      doc.setFont("helvetica", "normal")
+      const ubic = inc.ubicacion.length > 32 ? inc.ubicacion.slice(0, 30) + ".." : inc.ubicacion
+      doc.text(ubic, rx + 0.06, y + 0.14)
+      rx += hCols[1].w
+      // Tipo
+      doc.text(tipoLabels[inc.tipo] || inc.tipo, rx + 0.06, y + 0.14)
+      rx += hCols[2].w
+      // Severidad
+      const sc = sevColor(inc.severidad)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...sc.fg)
+      doc.text(inc.severidad.toUpperCase(), rx + 0.06, y + 0.14)
+      rx += hCols[3].w
+      // Afectados
+      doc.setTextColor(...C.slate800)
+      doc.setFont("courier", "normal")
+      doc.text(String(inc.personas_afectadas || 0), rx + 0.06, y + 0.14)
+      rx += hCols[4].w
+      // Hash IA (Arkiv)
+      doc.setFont("courier", "normal")
+      doc.setFontSize(5)
+      const aiKey = (inc.fuente_detalles?.ai_analysis as any)?.arkiv_entity_key || inc.fuente_detalles?.arkiv_entity_key as string || "—"
+      const displayAiKey = aiKey.length > 25 ? aiKey.slice(0, 11) + ".." + aiKey.slice(-12) : aiKey
+      doc.text(displayAiKey, rx + 0.06, y + 0.14)
+      rx += hCols[5].w
+      // Hash Despacho
+      const dispatchKey = inc.arkiv_key || "—"
+      const displayDispKey = dispatchKey.length > 25 ? dispatchKey.slice(0, 11) + ".." + dispatchKey.slice(-12) : dispatchKey
+      doc.text(displayDispKey, rx + 0.06, y + 0.14)
+      doc.setFontSize(6)
+
+      y += hRowH
+    })
+    y += 0.25
+  }
+
+  // ── TABLA 3: Recursos Desplegados ──
   if (y + 0.8 > LH - M - 0.5) {
     doc.addPage()
     y = M + 0.2
@@ -520,7 +730,7 @@ export function generateGeneralReport(
       })
 
       // Find the incident this resource is assigned to
-      const assignedInc = incidents.find(i => i.id === rec.incidente_id)
+      const assignedInc = incidents.find(i => i.id === rec.incidente_id) || historicalIncidents.find(i => i.id === rec.incidente_id)
 
       rx = M
       doc.setFontSize(6)

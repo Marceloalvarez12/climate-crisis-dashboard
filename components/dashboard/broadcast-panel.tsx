@@ -57,6 +57,7 @@ More info: @DefensaCivilTuc`
 
 export function BroadcastPanel() {
   const { data: incidents } = useSWR("/api/incidentes", fetcher)
+  const { data: historicalIncidents } = useSWR("/api/incidentes?estado=atendido", fetcher)
   const { data: analytics } = useSWR("/api/analytics", fetcher)
   const { data: recursos } = useSWR("/api/recursos", fetcher)
 
@@ -144,7 +145,7 @@ export function BroadcastPanel() {
   const handleDownloadPdf = async () => {
     setGeneratingPdf(true)
     try {
-      generateGeneralReport(incidents || [], recursos || [], analytics || {})
+      generateGeneralReport(incidents || [], historicalIncidents || [], recursos || [], analytics || {})
       toast.success("Planilla Operativa descargada", {
         description: `Planilla_Operativa_Tucuman_${new Date().toISOString().slice(0, 10)}.pdf`,
       })
