@@ -42,7 +42,7 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Link href="/auditoria" target="_blank" className="hidden xs:block">
+        <Link href="/auditoria" target="_blank" className="sm:block">
           <Button variant="outline" size="sm" className="h-8 gap-1.5 border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs font-semibold cursor-pointer">
             <ShieldCheck className="h-3.5 w-3.5" />
             Portal de Auditoría
