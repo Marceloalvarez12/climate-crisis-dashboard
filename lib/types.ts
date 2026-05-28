@@ -40,6 +40,8 @@ export interface Incident {
   timestamp:      Date
   source:         IncidentSource
   sourceDetails:  IncidentSourceDetails
+  estado?:        string
+  arkiv_key?:     string
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +72,7 @@ export interface DbIncident {
   fuente:           string
   fuente_detalles:  Record<string, unknown>
   estado:           string
+  arkiv_key?:       string
   created_at:       string
   updated_at:       string
 }

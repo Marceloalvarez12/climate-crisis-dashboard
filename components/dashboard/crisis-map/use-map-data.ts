@@ -25,12 +25,14 @@ export function dbToIncident(inc: DbIncident): Incident {
     timestamp:      new Date(inc.created_at),
     source:         inc.fuente as Incident["source"],
     sourceDetails:  inc.fuente_detalles || {},
+    estado:         inc.estado,
+    arkiv_key:      inc.arkiv_key,
   }
 }
 
-/** Hook de incidentes activos con polling cada 3 s */
-export function useIncidents() {
-  const { data, error, mutate } = useSWR<DbIncident[]>("/api/incidentes", fetcher, {
+/** Hook de incidentes activos/atendidos con polling cada 3 s */
+export function useIncidents(estado: "activo" | "atendido" = "activo") {
+  const { data, error, mutate } = useSWR<DbIncident[]>(`/api/incidentes?estado=${estado}`, fetcher, {
     ...SWR_CONFIG,
     refreshInterval: 0,
   })

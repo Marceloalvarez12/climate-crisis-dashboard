@@ -2,12 +2,15 @@ import { NextResponse } from "next/server"
 import { IncidentCreateSchema, IncidentPatchSchema } from "@/lib/validation"
 import { supabase } from "@/lib/supabase"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const estado = searchParams.get("estado") || "activo"
+
     const { data, error } = await supabase
       .from("incidentes")
       .select("*")
-      .eq("estado", "activo")
+      .eq("estado", estado)
       .order("created_at", { ascending: false })
 
     if (error) {
