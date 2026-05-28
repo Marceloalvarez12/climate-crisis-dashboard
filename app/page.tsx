@@ -12,6 +12,14 @@ import { Suspense } from "react"
 import { Map, Bot, Shield, BarChart2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { mutate } from "swr"
+import { createClient } from "@supabase/supabase-js"
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+
+const supabaseClient = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null
 
 type MobileTab = "map" | "agent" | "resources" | "analytics"
 
@@ -25,11 +33,44 @@ const MOBILE_TABS: { id: MobileTab; label: string; icon: React.ReactNode }[] = [
 export default function CrisisDashboard() {
   const [activeTab, setActiveTab] = useState<MobileTab>("map")
 
+  // Realtime subscription to Supabase changes
+  useEffect(() => {
+    if (!supabaseClient) return
+
+    const channel = supabaseClient
+      .channel("realtime-dashboard")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "incidentes" },
+        (payload) => {
+          console.log("Realtime incidentes change:", payload)
+          mutate("/api/incidentes?estado=activo")
+          mutate("/api/incidentes?estado=atendido")
+          mutate("/api/analytics")
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "recursos" },
+        (payload) => {
+          console.log("Realtime recursos change:", payload)
+          mutate("/api/recursos")
+          mutate("/api/analytics")
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabaseClient.removeChannel(channel)
+    }
+  }, [])
+
   // Revalidate all SWR data when user returns to the page
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        mutate("/api/incidentes")
+        mutate("/api/incidentes?estado=activo")
+        mutate("/api/incidentes?estado=atendido")
         mutate("/api/recursos")
         mutate("/api/analytics")
       }
