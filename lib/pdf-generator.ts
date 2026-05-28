@@ -249,6 +249,7 @@ export async function generateIncidentPdf(
     
     const boxH = 1.15
     const QRCode = (await import("qrcode")).default
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"
 
     if (hasAiSeal && hasDispatchSeal) {
       // Draw side-by-side boxes
@@ -262,7 +263,7 @@ export async function generateIncidentPdf(
       doc.roundedRect(bx, y, boxW, boxH, 0.04, 0.04, "FD")
       
       try {
-        const qr = await QRCode.toDataURL(`https://braga.explorer.arkiv.network/entity/${aiKey}`, { width: 150, margin: 1 })
+        const qr = await QRCode.toDataURL(`${origin}/auditoria?key=${aiKey}`, { width: 150, margin: 1 })
         doc.addImage(qr, "PNG", bx + 0.08, y + 0.08, 0.65, 0.65)
       } catch {}
       
@@ -287,7 +288,11 @@ export async function generateIncidentPdf(
       doc.setFontSize(5.5)
       doc.setFont("helvetica", "bold")
       doc.setTextColor(...C.emerald700)
-      doc.text("🛡️ VERIFICADO IA", tx, y + 0.85)
+      doc.text("🛡️ VERIFICADO IA", tx, y + 0.82)
+      doc.setFontSize(4.5)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...C.slate500)
+      doc.text("Escaneá el QR para auditar público", tx, y + 0.95)
 
       // Dispatch Seal Box
       bx = M + boxW + 0.25
@@ -297,7 +302,7 @@ export async function generateIncidentPdf(
       doc.roundedRect(bx, y, boxW, boxH, 0.04, 0.04, "FD")
       
       try {
-        const qr = await QRCode.toDataURL(`https://braga.explorer.arkiv.network/entity/${dispatchKey}`, { width: 150, margin: 1 })
+        const qr = await QRCode.toDataURL(`${origin}/auditoria?key=${dispatchKey}`, { width: 150, margin: 1 })
         doc.addImage(qr, "PNG", bx + 0.08, y + 0.08, 0.65, 0.65)
       } catch {}
       
@@ -322,7 +327,11 @@ export async function generateIncidentPdf(
       doc.setFontSize(5.5)
       doc.setFont("helvetica", "bold")
       doc.setTextColor(...C.blue700)
-      doc.text("🛡️ VERIFICADO COMANDO", tx, y + 0.85)
+      doc.text("🛡️ VERIFICADO COMANDO", tx, y + 0.82)
+      doc.setFontSize(4.5)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...C.slate500)
+      doc.text("Escaneá el QR para auditar público", tx, y + 0.95)
 
       y += boxH + 0.25
     } else {
@@ -339,7 +348,7 @@ export async function generateIncidentPdf(
       doc.roundedRect(M, y, CW, boxH, 0.04, 0.04, "FD")
       
       try {
-        const qr = await QRCode.toDataURL(`https://braga.explorer.arkiv.network/entity/${singleKey}`, { width: 150, margin: 1 })
+        const qr = await QRCode.toDataURL(`${origin}/auditoria?key=${singleKey}`, { width: 150, margin: 1 })
         doc.addImage(qr, "PNG", M + 0.12, y + 0.12, 0.75, 0.75)
       } catch {}
       
@@ -365,7 +374,11 @@ export async function generateIncidentPdf(
       doc.setFontSize(6.5)
       doc.setFont("helvetica", "bold")
       doc.setTextColor(...badgeColor)
-      doc.text(badge, tx, y + 0.9)
+      doc.text(badge, tx, y + 0.88)
+      doc.setFontSize(5.5)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...C.slate500)
+      doc.text("Escaneá el código QR a la izquierda para auditar este reporte en el Portal de Auditoría Ciudadana.", tx, y + 1.02)
 
       y += boxH + 0.25
     }

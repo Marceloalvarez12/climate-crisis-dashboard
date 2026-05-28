@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Bell, Settings, Zap, Radio } from "lucide-react"
+import { Bell, Settings, Zap, Radio, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
 
 export function DashboardHeader() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
@@ -41,6 +42,13 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-2">
+        <Link href="/auditoria" target="_blank" className="hidden xs:block">
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs font-semibold cursor-pointer">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Portal de Auditoría
+          </Button>
+        </Link>
+
         <div className="hidden items-center gap-1.5 rounded-md border border-border bg-secondary/50 px-2.5 py-1.5 sm:flex">
           <Radio className="h-3 w-3 text-success animate-pulse" />
           <span className="text-xs text-muted-foreground">System Active</span>

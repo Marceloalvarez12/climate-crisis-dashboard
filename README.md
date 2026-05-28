@@ -31,6 +31,22 @@ El sistema demuestra cómo la convergencia de **Inteligencia Artificial (Google 
 
 ---
 
+## ✨ Características de Competitividad (Portal de Auditoría, Tiempo Real y Efecto WOW)
+
+Para esta entrega del hackathon, hemos integrado tres innovaciones clave destinadas a impresionar a los jueces:
+
+1.  **Portal Público de Auditoría Ciudadana (`/auditoria`)**: 
+    *   Una página web pública e independiente (sin necesidad de loguearse) diseñada para generar confianza y transparencia.
+    *   Cualquier ciudadano, periodista o auditor gubernamental puede ingresar a `/auditoria` y pegar la **Entity Key (Hash de Arkiv)** de Braga Testnet para ver los datos inmutables y originales decodificados en tiempo real directamente de la blockchain.
+    *   **Integración Fluida**: Se puede acceder a este portal con un solo clic desde el botón de la cabecera del dashboard, el enlace de verificación en el modal de detalles de incidentes resueltos, o escaneando el **código QR dinámico** incluido en los reportes PDF individuales descargados.
+2.  **Sincronización en Tiempo Real (Supabase Realtime)**:
+    *   Reemplazamos el polling tradicional en el cliente por conexiones de WebSockets directas con Supabase.
+    *   Cuando un incidente es detectado por la IA o resuelto por un operador, el mapa, la lista de incidentes activos e históricos, y los paneles de analíticas se actualizan instantáneamente de forma reactiva en las pantallas de todos los usuarios sin necesidad de refrescar la pestaña.
+3.  **Animación de Radar Sonar Beacon (Efecto WOW)**:
+    *   Los incidentes de severidad **Crítica** y **Alta** en el mapa interactivo de Leaflet cuentan con una animación de radar expansivo de color a juego con su gravedad. Esta onda de choque visual atrae inmediatamente la atención del operador durante momentos críticos.
+
+---
+
 ## 🧠 Enfoque de Implementación y Aprendizajes (Arkiv Integration)
 
 Durante el diseño e integración del SDK de Arkiv, nos enfrentamos a desafíos técnicos clave que resolvimos con enfoques innovadores para el hackathon:

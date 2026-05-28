@@ -251,23 +251,37 @@ export function IncidentDetailModal({
               {incident.estado === "atendido" ? (
                 <div className="space-y-3">
                   {incident.arkiv_key && <OnChainVerifier arkivKey={incident.arkiv_key} />}
-                  <Button
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 py-5"
-                    onClick={() => handleDownloadReport(incident)}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Generando PDF...
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-5 w-5" />
-                        Descargar Reporte Oficial (PDF)
-                      </>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 py-5 cursor-pointer"
+                      onClick={() => handleDownloadReport(incident)}
+                      disabled={isGenerating}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generando...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-4 w-4" />
+                          Reporte PDF
+                        </>
+                      )}
+                    </Button>
+                    {incident.arkiv_key && (
+                      <Button
+                        variant="outline"
+                        className="flex-1 border-emerald-500/30 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-semibold flex items-center justify-center gap-2 py-5 cursor-pointer"
+                        asChild
+                      >
+                        <a href={`/auditoria?key=${incident.arkiv_key}`} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                          Verificar Portal
+                        </a>
+                      </Button>
                     )}
-                  </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
