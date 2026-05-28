@@ -46,6 +46,7 @@ function geminiAnalysisToActivity(analysis: GeminiAnalysis): Omit<ActivityItem, 
     location:   analysis.locationName,
     severity:   analysis.severity as ActivityItem["severity"],
     confidence: analysis.confidence,
+    arkivKey:   analysis.arkivKey,
     reasoning: [
       {
         step:    1,

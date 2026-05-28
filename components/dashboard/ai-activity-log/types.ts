@@ -16,6 +16,7 @@ export interface ActivityItem {
   severity?:   "critical" | "high" | "medium" | "low"
   confidence?: number
   reasoning?:  ReasoningStep[]
+  arkivKey?:   string
 }
 
 export interface SatelliteValidation {

@@ -13,6 +13,7 @@ export const initialActivities: ActivityItem[] = [
     message: "Analyzing flood mentions in Tucumán",
     timestamp: new Date(Date.now() - 180_000),
     confidence: 92,
+    arkivKey: "0x61726b6976666c6f6f64616e616c79736973656e746974796b65796272616761",
     reasoning: [
       { step: 1, thought: "Detected 47 tweets with keywords: 'inundacion', 'agua', 'evacuacion' in San Miguel de Tucumán" },
       { step: 2, thought: "Geolocating tweets... 38 have verifiable coordinates" },
