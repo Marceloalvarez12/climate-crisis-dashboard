@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createPublicClient, http } from '@arkiv-network/sdk'
 import { braga } from '@arkiv-network/sdk/chains'
+import { supabase } from '@/lib/supabase'
 
 export async function GET(
   request: Request,
@@ -32,11 +33,56 @@ export async function GET(
       transport: http(),
     })
 
-    // Obtener la entidad desde la red de Arkiv (Braga Testnet)
-    const entity = await client.getEntity(key as `0x${string}`)
+    let entity = null
+    try {
+      // Obtener la entidad desde la red de Arkiv (Braga Testnet)
+      entity = await client.getEntity(key as `0x${string}`)
+    } catch (e) {
+      console.warn('[Arkiv Verify] Key not found on-chain, trying database fallback if key is simulated:', e)
+    }
 
     if (!entity) {
-      return NextResponse.json({ error: 'Entidad no encontrada en la blockchain' }, { status: 404 })
+      // Intentar recuperar del simulador local (Supabase)
+      const { data: incident, error: findError } = await supabase
+        .from('incidentes')
+        .select('*')
+        .or(`fuente_detalles->>arkiv_entity_key.eq.${key},fuente_detalles->ai_analysis->>arkiv_entity_key.eq.${key}`)
+        .maybeSingle()
+
+      if (incident) {
+        // Encontrado en base de datos local - retornar mock de simulación
+        const isAiKey = (incident.fuente_detalles?.ai_analysis as any)?.arkiv_entity_key === key
+        const simulatedPayload = isAiKey ? {
+          agent: "Gemini 2.0 Flash (Simulado)",
+          task: "Real-time Climate Crisis Monitoring",
+          location: incident.ubicacion,
+          type: incident.tipo,
+          severity: incident.severidad,
+          summary: incident.fuente_detalles?.content || "Detección automática de la IA",
+          confidence: (incident.fuente_detalles?.ai_analysis as any)?.confidence || 90,
+          scannedAt: incident.created_at,
+          simulated: true
+        } : {
+          id: incident.id,
+          tipo: incident.tipo,
+          severidad: incident.severidad,
+          ubicacion: incident.ubicacion,
+          afectados: incident.personas_afectadas,
+          timestamp: incident.fuente_detalles?.dispatched_at || incident.updated_at,
+          simulated: true
+        }
+
+        return NextResponse.json({
+          success: true,
+          key,
+          creator: '0xSimulatedOperatorAccount0000000000000000',
+          expiresAtBlock: '999999 (Simulación)',
+          payload: simulatedPayload,
+          isSimulated: true
+        })
+      }
+
+      return NextResponse.json({ success: false, error: 'Entidad no encontrada en la blockchain ni en la base de datos local' }, { status: 404 })
     }
 
     // Retornar los detalles decodificados
