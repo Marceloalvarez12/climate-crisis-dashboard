@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { Users, Clock, MapPinned, Twitter, Send, Phone, CheckCircle2 } from "lucide-react"
+import { Users, Clock, MapPinned, Twitter, Send, Phone, CheckCircle2, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -33,6 +33,7 @@ interface IncidentDetailModalProps {
   showDeployModal: boolean
   onClose:         () => void
   onOpenDeploy:    () => void
+  onOpenBlockchain?: () => void
 }
 
 export function IncidentDetailModal({
@@ -40,6 +41,7 @@ export function IncidentDetailModal({
   showDeployModal,
   onClose,
   onOpenDeploy,
+  onOpenBlockchain,
 }: IncidentDetailModalProps) {
   return (
     <Dialog open={!!incident && !showDeployModal} onOpenChange={onClose}>
@@ -91,15 +93,27 @@ export function IncidentDetailModal({
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2">
-                <Button className="flex-1" variant="default" onClick={onOpenDeploy}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Deploy Resources
-                </Button>
-                <Button className="flex-1" variant="outline">
-                  <Phone className="h-4 w-4 mr-2" />
-                  Contact Authorities
-                </Button>
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={onOpenDeploy}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Despliegue Local
+                  </Button>
+                  {onOpenBlockchain ? (
+                    <Button 
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                      onClick={onOpenBlockchain}
+                    >
+                      <Shield className="h-4 w-4 mr-2" />
+                      Despacho On-Chain
+                    </Button>
+                  ) : (
+                    <Button className="w-full" variant="outline">
+                      <Phone className="h-4 w-4 mr-2" />
+                      Contact Authorities
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </>

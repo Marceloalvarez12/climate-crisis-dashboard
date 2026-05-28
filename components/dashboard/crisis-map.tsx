@@ -17,6 +17,8 @@ import { useIncidents, useResources } from "./crisis-map/use-map-data"
 import { IncidentIcon, SourceIcon, severityColorClass, sourceLabel, incidentTypeLabel } from "./crisis-map/incident-helpers"
 import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./crisis-map/leaflet-icon"
 import { IncidentDetailModal, DeployModal } from "./crisis-map/map-modals"
+import { IncidentDispatchCard } from "./incident-dispatch-card"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 // ---------------------------------------------------------------------------
 // Lazy-load de componentes Leaflet (sólo cliente)
@@ -45,6 +47,7 @@ export function CrisisMap() {
   const [leafletCssLoaded, setLeafletCssLoaded] = useState(false)
   const [selectedIncident,   setSelectedIncident]   = useState<Incident | null>(null)
   const [showDeployModal,    setShowDeployModal]     = useState(false)
+  const [showBlockchainModal, setShowBlockchainModal] = useState(false)
   const [activeLayers,       setActiveLayers]       = useState<IncidentSource[]>(SOURCE_TYPES)
   const [deployingResources, setDeployingResources] = useState(false)
   const [deploySuccess,      setDeploySuccess]      = useState(false)
@@ -330,6 +333,7 @@ export function CrisisMap() {
         showDeployModal={showDeployModal}
         onClose={() => setSelectedIncident(null)}
         onOpenDeploy={handleOpenDeploy}
+        onOpenBlockchain={() => setShowBlockchainModal(true)}
       />
 
       <DeployModal
@@ -344,6 +348,30 @@ export function CrisisMap() {
         onDeploy={handleDeployResources}
         onAdjustCount={adjustCount}
       />
+
+      <Dialog open={showBlockchainModal} onOpenChange={setShowBlockchainModal}>
+        <DialogContent className="max-w-md p-0 bg-transparent border-none z-[9999]">
+          {selectedIncident && (
+            <IncidentDispatchCard
+              incident={{
+                id: selectedIncident.id,
+                tipo: selectedIncident.type === "flood" || selectedIncident.type === "fire" ? selectedIncident.type : "general",
+                severidad: selectedIncident.severity as "critical" | "high" | "medium" | "low",
+                ubicacion: selectedIncident.location,
+                afectados: selectedIncident.affectedPeople,
+                timestamp: selectedIncident.timestamp ? new Date(selectedIncident.timestamp).toISOString() : new Date().toISOString(),
+              }}
+              onDispatchSuccess={() => {
+                mutateIncidents()
+              }}
+              onDismiss={() => {
+                setShowBlockchainModal(false)
+                setSelectedIncident(null)
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
