@@ -85,7 +85,10 @@ export function useSimulationLoop() {
     try {
       const data = await createIncidente({
         ...respawn,
-        fuente_detalles: template.fuente_detalles,
+        fuente_detalles: {
+          ...template.fuente_detalles,
+          ...respawn.fuente_detalles,
+        },
         estado: "activo",
       })
       mutate("/api/incidentes")
@@ -137,8 +140,36 @@ export function useSimulationLoop() {
         )
         addEvent({ type: "resource_arrived", message: `${available.nombre} llegó a ${incidentLocation}`, incidentId, resourceId: available.id })
 
-        // 2. Incidente → atendido
-        await patchIncidente(incidentId, { estado: "atendido" })
+        // 2. Incidente → atendido (Firma on-chain)
+        try {
+          const incidentes = await fetch("/api/incidentes?estado=activo").then((res) => res.json())
+          const incident = Array.isArray(incidentes) ? incidentes.find((i: any) => i.id === incidentId) : null
+          if (incident) {
+            const response = await fetch("/api/incidentes/arkiv-dispatch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: incidentId,
+                tipo: incident.tipo,
+                severidad: incident.severidad || "medium",
+                ubicacion: incident.ubicacion,
+                afectados: incident.personas_afectadas || 0,
+              }),
+            })
+            const data = await response.json()
+            if (response.ok && data.success) {
+              console.log("[use-simulation-loop] Dispatch signed on-chain:", data.entityKey)
+            } else {
+              console.warn("[use-simulation-loop] On-chain signing failed, falling back to local patch:", data.error)
+              await patchIncidente(incidentId, { estado: "atendido" })
+            }
+          } else {
+            await patchIncidente(incidentId, { estado: "atendido" })
+          }
+        } catch (e) {
+          console.error("[use-simulation-loop] Error signing dispatch on-chain, falling back to local:", e)
+          await patchIncidente(incidentId, { estado: "atendido" })
+        }
         mutate("/api/incidentes")
         mutate("/api/analytics")
         addEvent({ type: "incident_resolved", message: `Incidente en ${incidentLocation} resuelto`, incidentId })
