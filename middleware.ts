@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-const PUBLIC_PATHS = ["/_next", "/favicon.ico", "/api/analytics"]
+const PUBLIC_PATHS = ["/_next", "/favicon.ico", "/api/analytics", "/api/incidentes/arkiv-verify"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

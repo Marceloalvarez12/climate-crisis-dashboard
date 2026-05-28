@@ -11,7 +11,20 @@ export async function GET(
     const key = resolvedParams.key
 
     if (!key || !key.startsWith('0x')) {
-      return NextResponse.json({ error: 'Llave de entidad inválida' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Llave de entidad inválida' }, { status: 400 })
+    }
+
+    if (key.length !== 66) {
+      if (key.length === 42) {
+        return NextResponse.json({
+          success: false,
+          error: 'Has ingresado una dirección de billetera (42 caracteres). Debes ingresar una llave de entidad (Entity Key) válida de 32 bytes (66 caracteres empezando con "0x").'
+        }, { status: 400 })
+      }
+      return NextResponse.json({
+        success: false,
+        error: `Longitud de llave inválida: ${key.length} caracteres. Debe ser una llave de entidad de 66 caracteres (32 bytes empezando con "0x").`
+      }, { status: 400 })
     }
 
     const client = createPublicClient({
