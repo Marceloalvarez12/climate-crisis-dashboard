@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { Users, Clock, MapPinned, Twitter, Send, Phone, CheckCircle2, Shield } from "lucide-react"
+import { useMemo, useState, useEffect } from "react"
+import { Users, Clock, MapPinned, Twitter, Send, Phone, CheckCircle2, Truck, ShieldAlert, ShieldCheck, Loader2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -25,26 +25,150 @@ import { RecursoIcon, tipoRecursoLabel } from "./resource-helpers"
 import type { Incident, DbResource } from "@/lib/types"
 
 // ---------------------------------------------------------------------------
+// Componente de Auditoría y Sello de Verificación On-Chain (Arkiv Network)
+// ---------------------------------------------------------------------------
+
+interface OnChainVerifierProps {
+  arkivKey: string
+}
+
+function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<{
+    creator: string
+    expiresAtBlock: string | null
+    payload: any
+  } | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const verify = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`/api/incidentes/arkiv-verify/${arkivKey}`)
+        const json = await res.json()
+        if (!active) return
+        if (json.success) {
+          setData({
+            creator: json.creator,
+            expiresAtBlock: json.expiresAtBlock,
+            payload: json.payload,
+          })
+        } else {
+          setError(json.error || "No se pudo recuperar la información de la blockchain.")
+        }
+      } catch (err) {
+        if (!active) return
+        setError("Error de red al intentar verificar el estado on-chain.")
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    verify()
+    return () => {
+      active = false
+    }
+  }, [arkivKey])
+
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 flex flex-col items-center justify-center gap-2 animate-pulse">
+        <Loader2 className="h-6 w-6 text-emerald-400 animate-spin" />
+        <p className="text-xs text-emerald-400 font-medium">Verificando firma criptográfica en Braga Testnet...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-red-400">
+          <ShieldAlert className="h-5 w-5" />
+          <span className="text-xs font-semibold">Error de Auditoría On-Chain</span>
+        </div>
+        <p className="text-xs text-muted-foreground">{error}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3 relative overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute top-0 right-0 -mr-8 -mt-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-xl pointer-events-none" />
+
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
+          <div>
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Verificación Criptográfica Exitosa</span>
+            <p className="text-[10px] text-muted-foreground">Estado auditado y sellado de forma inmutable</p>
+          </div>
+        </div>
+        <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
+          Braga Network
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 text-[11px] border-t border-emerald-500/10">
+        <div className="space-y-1">
+          <p className="text-[9px] text-muted-foreground uppercase">Despachador (Public Key)</p>
+          <p className="font-mono text-foreground truncate select-all" title={data?.creator}>
+            {data?.creator}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-[9px] text-muted-foreground uppercase">Key de la Entidad</p>
+          <p className="font-mono text-foreground truncate select-all" title={arkivKey}>
+            {arkivKey}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-1 text-[11px]">
+        <p className="text-[9px] text-muted-foreground uppercase">Payload Registrado en Bloque</p>
+        <pre className="font-mono text-[10px] text-emerald-300 bg-black/40 p-2.5 rounded border border-emerald-500/15 overflow-x-auto max-h-32 custom-scrollbar">
+          {JSON.stringify(data?.payload, null, 2)}
+        </pre>
+      </div>
+
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1.5 border-t border-emerald-500/10">
+        <span>Vence en bloque: <strong className="font-mono text-foreground">{data?.expiresAtBlock || 'Infinito'}</strong></span>
+        <a
+          href={`https://braga.explorer.arkiv.network/entity/${arkivKey}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 transition-colors"
+        >
+          Ver en Explorador
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Modal de detalle del incidente
 // ---------------------------------------------------------------------------
 
 interface IncidentDetailModalProps {
+  isOpen:          boolean
   incident:        Incident | null
-  showDeployModal: boolean
   onClose:         () => void
   onOpenDeploy:    () => void
-  onOpenBlockchain?: () => void
 }
 
 export function IncidentDetailModal({
+  isOpen,
   incident,
-  showDeployModal,
   onClose,
   onOpenDeploy,
-  onOpenBlockchain,
 }: IncidentDetailModalProps) {
   return (
-    <Dialog open={!!incident && !showDeployModal} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[9999]">
         {incident && (
           <>
@@ -55,9 +179,16 @@ export function IncidentDetailModal({
                 </div>
                 <div>
                   <span className="text-base">{incident.location}</span>
-                  <p className="text-xs font-normal text-muted-foreground mt-0.5">
-                    {incidentTypeLabel(incident.type)} — Severity {incidentSeverityLabel(incident.severity)}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {incidentTypeLabel(incident.type)} — Severity {incidentSeverityLabel(incident.severity)}
+                    </span>
+                    {incident.estado === "atendido" && (
+                      <Badge className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25 text-[9px] px-1.5 py-0 border border-emerald-500/30">
+                        Atendido
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </DialogTitle>
             </DialogHeader>
@@ -92,29 +223,17 @@ export function IncidentDetailModal({
                 <SourceDetail incident={incident} />
               </div>
 
-              {/* Actions */}
-              <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={onOpenDeploy}>
-                    <Send className="h-4 w-4 mr-2" />
-                    Despliegue Local
+              {/* On-Chain Verification / Dispatch Action */}
+              {incident.estado === "atendido" && incident.arkiv_key ? (
+                <OnChainVerifier arkivKey={incident.arkiv_key} />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-5" onClick={onOpenDeploy}>
+                    <Truck className="h-5 w-5 mr-2" />
+                    Despliegue de Recursos
                   </Button>
-                  {onOpenBlockchain ? (
-                    <Button 
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold"
-                      onClick={onOpenBlockchain}
-                    >
-                      <Shield className="h-4 w-4 mr-2" />
-                      Despacho On-Chain
-                    </Button>
-                  ) : (
-                    <Button className="w-full" variant="outline">
-                      <Phone className="h-4 w-4 mr-2" />
-                      Contact Authorities
-                    </Button>
-                  )}
                 </div>
-              </div>
+              )}
             </div>
           </>
         )}

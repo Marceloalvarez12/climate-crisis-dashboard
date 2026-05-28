@@ -1,19 +1,37 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle2, Loader2, Shield, AlertTriangle, MapPin, Users, Clock, ExternalLink, ShieldCheck } from "lucide-react"
+import { CheckCircle2, Loader2, Truck, AlertTriangle, MapPin, Users, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { GeneradorReportePDF } from "./GeneradorReportePDF"
-import type { EmergencyIncident, ArkivDispatchResponse } from "@/lib/types"
+import { toast } from "sonner"
+import { RecursoIcon, tipoRecursoLabel } from "./crisis-map/resource-helpers"
+
+// ──────────────────────────────────────────────────────────
+// NOTA: La funcionalidad de despacho on-chain (Arkiv Blockchain)
+// está comentada más abajo. Para habilitarla, descomentar el
+// bloque marcado con [ARKIV ON-CHAIN] y asegurar que
+// ARKIV_PRIVATE_KEY esté configurada en .env.local
+// ──────────────────────────────────────────────────────────
+
+interface IncidentData {
+  id: string
+  tipo: string
+  severidad: string
+  ubicacion: string
+  afectados: number
+  timestamp: string
+}
 
 interface IncidentDispatchCardProps {
-  incident?: EmergencyIncident
-  onDispatchSuccess?: (entityKey: string) => void
+  incident?: IncidentData
+  selectedCounts?: Record<string, number>
+  onConfirmDispatch?: () => Promise<void>
+  onDispatchSuccess?: () => void
   onDismiss?: () => void
 }
 
-const DEFAULT_INCIDENT: EmergencyIncident = {
+const DEFAULT_INCIDENT: IncidentData = {
   id: `inc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
   tipo: "flood",
   severidad: "critical",
@@ -24,44 +42,66 @@ const DEFAULT_INCIDENT: EmergencyIncident = {
 
 export function IncidentDispatchCard({
   incident = DEFAULT_INCIDENT,
+  selectedCounts,
+  onConfirmDispatch,
   onDispatchSuccess,
   onDismiss,
 }: IncidentDispatchCardProps) {
   const [isDeploying, setIsDeploying] = useState(false)
-  const [dispatchResult, setDispatchResult] = useState<ArkivDispatchResponse | null>(null)
+  const [deployed, setDeployed] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleValidarYDespachar = async () => {
+  const handleDesplegarRecursos = async () => {
     setIsDeploying(true)
     setError(null)
-    setDispatchResult(null)
-
-    const incidenteData: EmergencyIncident = {
-      ...incident,
-      timestamp: new Date().toISOString(),
-    }
 
     try {
-      const response = await fetch("/api/incidentes/arkiv-dispatch", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(incidenteData),
-      })
+      let blockchainKey: string | undefined = undefined
 
-      const data: ArkivDispatchResponse = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Fallo al registrar on-chain")
+      // [ARKIV ON-CHAIN] — Intento de registro en blockchain con fallback local
+      try {
+        const response = await fetch("/api/incidentes/arkiv-dispatch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...incident,
+            timestamp: new Date().toISOString(),
+          }),
+        })
+        const data = await response.json()
+        if (response.ok && data.success) {
+          blockchainKey = data.entityKey
+          console.log("Registrado on-chain con éxito. EntityKey:", blockchainKey)
+        } else {
+          console.warn("Firma on-chain omitida o no autorizada:", data.error || "Fallo en API")
+        }
+      } catch (bcError) {
+        console.warn("Error de conexión on-chain, continuando con despacho local de respaldo:", bcError)
       }
 
-      console.log("Registrado on-chain. EntityKey:", data.entityKey)
-      setDispatchResult(data)
-      onDispatchSuccess?.(data.entityKey!)
+      // Ejecutar despacho (actualización de base de datos) si se provee
+      if (onConfirmDispatch) {
+        await onConfirmDispatch()
+      } else {
+        // Despacho LOCAL fallback: simula despliegue de recursos
+        await new Promise(resolve => setTimeout(resolve, 1500))
+      }
+
+      setDeployed(true)
+      onDispatchSuccess?.()
+
+      if (blockchainKey) {
+        toast.success("Despliegue Autorizado On-Chain", {
+          description: `Recursos enviados a ${incident.ubicacion}. Hash: ${blockchainKey.slice(0, 12)}...`,
+        })
+      } else {
+        toast.success("Recursos Desplegados (Modo Local)", {
+          description: `Unidades enviadas a ${incident.ubicacion}. (Registro on-chain omitido)`,
+        })
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Error desconocido"
-      console.error("Fallo el despacho:", errorMessage)
+      console.error("Fallo el despliegue:", errorMessage)
       setError(errorMessage)
     } finally {
       setIsDeploying(false)
@@ -73,80 +113,83 @@ export function IncidentDispatchCard({
     high: "text-orange-400 bg-orange-500/10 border-orange-500/30",
     medium: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30",
     low: "text-green-400 bg-green-500/10 border-green-500/30",
-  }[incident.severidad]
+  }[incident.severidad] || "text-green-400 bg-green-500/10 border-green-500/30"
 
   const tipoLabel = {
     flood: "Inundación",
     fire: "Incendio",
+    storm: "Tormenta",
+    looting: "Saqueos",
+    violence: "Violencia",
+    accident: "Accidente",
     medical: "Emergencia Médica",
     general: "Emergencia General",
-  }[incident.tipo]
+  }[incident.tipo] || incident.tipo
 
-  if (dispatchResult?.success && dispatchResult.entityKey) {
-    const key = dispatchResult.entityKey
-    const truncatedKey = key.length > 12 ? `${key.slice(0, 6)}...${key.slice(-4)}` : key
-
+  // ── Vista de éxito ──
+  if (deployed) {
     return (
       <div className="w-full max-w-md mx-auto">
         <div className="rounded-xl border border-emerald-800 bg-emerald-950/50 p-6 shadow-2xl shadow-emerald-950/20 text-center space-y-4">
           <div className="flex justify-center">
             <div className="rounded-full bg-emerald-500/10 p-3">
-              <ShieldCheck className="h-10 w-10 text-emerald-400" />
+              <CheckCircle2 className="h-10 w-10 text-emerald-400" />
             </div>
           </div>
           <div className="space-y-1">
-            <h3 className="text-lg font-bold text-emerald-400">Despacho Verificado On-Chain</h3>
+            <h3 className="text-lg font-bold text-emerald-400">Recursos Desplegados</h3>
             <p className="text-xs text-emerald-300">
-              Registrado de forma transparente e inmutable en la red
+              Unidades de respuesta enviadas a la zona de emergencia
             </p>
           </div>
-          <div className="p-3 rounded-lg bg-black/40 border border-emerald-800/40 font-mono text-xs">
-            <p className="text-[10px] text-emerald-500/80 mb-1">Entity Key (Hash de Auditoría)</p>
-            <a
-              href={`https://data.arkiv.network/${key}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-400 hover:text-emerald-300 hover:underline inline-flex items-center gap-1.5"
-            >
-              {truncatedKey}
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
           
-          <GeneradorReportePDF
-            incidente={{
-              id: incident.id,
-              tipo: incident.tipo,
-              severidad: incident.severidad,
-              ubicacion: incident.ubicacion,
-              afectados: incident.afectados,
-              timestamp: incident.timestamp,
-              resumenIA: (incident as any).resumenIA || 
-                `Evaluación automática por Zntinel AI: Se identificó una alerta de ${tipoLabel.toLowerCase()} en ${incident.ubicacion} con un nivel de severidad ${incident.severidad}. Se ha completado el registro inmutable on-chain y despachado unidades de respuesta prioritaria.`
-            }}
-            entityKey={key}
-          />
+          <div className="p-3 rounded-lg bg-black/40 border border-emerald-800/40 text-xs space-y-1">
+            <p className="text-emerald-500/80">
+              <span className="font-medium text-emerald-400">Destino:</span> {incident.ubicacion}
+            </p>
+            <p className="text-emerald-500/80">
+              <span className="font-medium text-emerald-400">Tipo:</span> {tipoLabel} — {incident.severidad.toUpperCase()}
+            </p>
+            <p className="text-emerald-500/80">
+              <span className="font-medium text-emerald-400">Hora despacho:</span> {new Date().toLocaleTimeString("es-AR")}
+            </p>
+          </div>
+
+          {selectedCounts && Object.values(selectedCounts).some(v => v > 0) && (
+            <div className="p-3 rounded-lg bg-black/40 border border-emerald-800/40 text-xs text-left space-y-1.5">
+              <p className="font-bold text-emerald-400 text-xs">Detalle de Unidades:</p>
+              {Object.entries(selectedCounts)
+                .filter(([_, count]) => count > 0)
+                .map(([tipo, count]) => (
+                  <div key={tipo} className="flex justify-between items-center text-emerald-500/80">
+                    <span className="capitalize">{tipoRecursoLabel(tipo)}</span>
+                    <span className="font-bold">{count}</span>
+                  </div>
+                ))}
+            </div>
+          )}
 
           <Button
             variant="outline"
             className="w-full border-emerald-800 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-semibold"
             onClick={onDismiss}
           >
-            Cerrar Panel
+            Cerrar
           </Button>
         </div>
       </div>
     )
   }
 
+  // ── Vista principal ──
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="rounded-xl border-2 border-orange-500/50 bg-gradient-to-b from-orange-950/30 to-background p-6 shadow-2xl shadow-orange-500/10">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-orange-400" />
-            <h3 className="font-bold text-foreground">Validar y Despachar</h3>
+            <Truck className="h-5 w-5 text-orange-400" />
+            <h3 className="font-bold text-foreground">Autorizar Despliegue</h3>
           </div>
           <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", severityColor)}>
             {incident.severidad.toUpperCase()}
@@ -159,7 +202,7 @@ export function IncidentDispatchCard({
             <AlertTriangle className="h-8 w-8 text-orange-500 shrink-0" />
             <div>
               <p className="font-semibold text-foreground">{tipoLabel}</p>
-              <p className="text-xs text-muted-foreground">Requiere validación del operador</p>
+              <p className="text-xs text-muted-foreground">Requiere despliegue de unidades</p>
             </div>
           </div>
 
@@ -184,12 +227,27 @@ export function IncidentDispatchCard({
           </div>
         </div>
 
-        {/* Arkiv Info */}
-        <div className="p-2 rounded bg-purple-500/10 border border-purple-500/30 mb-4">
-          <p className="text-[10px] text-purple-300">
-            <span className="font-medium">Blockchain Arkiv:</span> Al despachar, este incidente será registrado de forma inmutable en la Red Braga para auditoría pública.
-          </p>
-        </div>
+        {/* Selected Resources List */}
+        {selectedCounts && Object.values(selectedCounts).some(v => v > 0) && (
+          <div className="space-y-2 mb-4 bg-muted/20 border border-border p-3 rounded-lg">
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Unidades a enviar:</p>
+            <div className="space-y-1.5">
+              {Object.entries(selectedCounts)
+                .filter(([_, count]) => count > 0)
+                .map(([tipo, count]) => (
+                  <div key={tipo} className="flex justify-between items-center bg-background/50 rounded p-2 border border-border/30">
+                    <div className="flex items-center gap-2">
+                      <div className="text-orange-400">
+                        <RecursoIcon tipo={tipo} />
+                      </div>
+                      <span className="text-xs font-medium text-foreground capitalize">{tipoRecursoLabel(tipo)}</span>
+                    </div>
+                    <span className="text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">{count}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
@@ -202,18 +260,18 @@ export function IncidentDispatchCard({
         <div className="flex gap-2">
           <Button
             className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold disabled:opacity-50"
-            onClick={handleValidarYDespachar}
+            onClick={handleDesplegarRecursos}
             disabled={isDeploying}
           >
             {isDeploying ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Registrando on-chain...
+                Desplegando...
               </>
             ) : (
               <>
-                <Shield className="h-4 w-4 mr-2" />
-                Validar y Despachar
+                <Truck className="h-4 w-4 mr-2" />
+                Confirmar Despliegue
               </>
             )}
           </Button>
