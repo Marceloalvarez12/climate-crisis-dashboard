@@ -26,6 +26,7 @@ export async function POST(request: Request): Promise<Response> {
       payload: jsonToPayload(incidente),
       contentType: 'application/json',
       attributes: [
+        { key: 'project', value: 'climate-crisis-dashboard' },
         { key: 'tipo', value: incidente.tipo || 'general' },
         { key: 'severidad', value: incidente.severidad || 'medium' },
         { key: 'ubicacion', value: incidente.ubicacion || 'unknown' },
@@ -35,32 +36,46 @@ export async function POST(request: Request): Promise<Response> {
       expiresIn: 604800,
     })
 
-    const { data: dbIncident, error: insertError } = await supabase
+    // Fetch existing incident to preserve and merge details
+    const { data: existing, error: fetchError } = await supabase
       .from('incidentes')
-      .insert({
+      .select('*')
+      .eq('id', incidente.id)
+      .single()
+
+    if (fetchError) {
+      console.warn(`[Arkiv Dispatch] Incidente no encontrado para actualizar, procediendo a crear uno.`)
+    }
+
+    const currentDetails = existing?.fuente_detalles || {}
+    const updatedDetails = {
+      ...currentDetails,
+      arkiv_entity_key: entityKey,
+      dispatched_at: new Date().toISOString(),
+      platform: 'Climate Crisis Dashboard Operator',
+    }
+
+    const { data: dbIncident, error: updateError } = await supabase
+      .from('incidentes')
+      .upsert({
         id: incidente.id,
-        tipo: incidente.tipo,
-        severidad: incidente.severidad,
-        ubicacion: incidente.ubicacion,
-        latitud: -26.8241,
-        longitud: -65.2226,
-        personas_afectadas: incidente.afectados,
-        fuente: 'social',
-        fuente_detalles: {
-          arkiv_entity_key: entityKey,
-          dispatched_at: incidente.timestamp,
-          platform: 'Zntinel Operator',
-        },
-        estado: 'activo',
+        tipo: incidente.tipo || existing?.tipo || 'general',
+        severidad: incidente.severidad || existing?.severidad || 'medium',
+        ubicacion: incidente.ubicacion || existing?.ubicacion || 'unknown',
+        latitud: existing?.latitud ?? -26.8241,
+        longitud: existing?.longitud ?? -65.2226,
+        personas_afectadas: incidente.afectados || existing?.personas_afectadas || 0,
+        fuente: existing?.fuente || 'social',
+        fuente_detalles: updatedDetails,
+        estado: 'atendido',
         arkiv_key: entityKey,
-        created_at: incidente.timestamp,
-        updated_at: incidente.timestamp,
+        updated_at: new Date().toISOString(),
       })
       .select()
       .single()
 
-    if (insertError) {
-      throw new Error(`Fallo al guardar incidente en Supabase: ${insertError.message}`)
+    if (updateError) {
+      throw new Error(`Fallo al guardar incidente en Supabase: ${updateError.message}`)
     }
 
     const response: ArkivDispatchResponse = {
