@@ -302,12 +302,24 @@ export function buildRespawnIncident(base?: { tipo?: string; fuente?: string; zo
 
   const personas_afectadas = estimateAffected(tipo, severidad)
 
+  const simulatedHash = `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join("")}`
+
   const fuente_detalles: Record<string, unknown> =
     fuente === "social"
       ? { platform: "X (Twitter)", username: "@alerta_tucuman", content: generateSocialText(tipo, zona), imageUrl: pickImage(tipo) }
       : fuente === "sensor"
       ? { sensorId: `WS-${String(Math.floor(Math.random() * 999)).padStart(3, "0")}`, temperature: 18 + Math.floor(Math.random() * 14), humidity: 70 + Math.floor(Math.random() * 28), windSpeed: 20 + Math.floor(Math.random() * 65), pressure: 1005 + Math.floor(Math.random() * 18) }
       : { cameraId: `CAM-${String(Math.floor(Math.random() * 999)).padStart(3, "0")}`, cameraLocation: zona, imageUrl: pickImage(tipo) }
+
+  // Inject mock AI blockchain audit keys to respawned incidents
+  fuente_detalles.arkiv_entity_key = simulatedHash
+  fuente_detalles.ai_analysis = {
+    reasoning: `Análisis automático del incidente de ${tipo} en la zona de ${zona}. Coordenadas validadas por satélite.`,
+    suggestedActions: ["Desplegar unidades de respuesta inmediata", "Notificar a Defensa Civil"],
+    confidence: 80 + Math.floor(Math.random() * 20),
+    relatedPostIds: [`post-${Math.floor(Math.random() * 1000)}`],
+    arkiv_entity_key: simulatedHash,
+  }
 
   return {
     tipo,

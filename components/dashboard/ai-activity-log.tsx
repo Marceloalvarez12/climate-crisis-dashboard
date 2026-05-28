@@ -288,7 +288,30 @@ export function AIActivityLog() {
         })
 
         if (incidente) {
-          await patchIncidente(incidente.id, { estado: "atendido" })
+          try {
+            const response = await fetch("/api/incidentes/arkiv-dispatch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: incidente.id,
+                tipo: incidente.tipo,
+                severidad: (incidente as any).severidad || "medium",
+                ubicacion: incidente.ubicacion,
+                afectados: (incidente as any).personas_afectadas || 0,
+              }),
+            })
+            const data = await response.json()
+            if (response.ok && data.success) {
+              console.log("[ai-activity-log] Dispatch signed on-chain from AI agent panel:", data.entityKey)
+            } else {
+              console.warn("[ai-activity-log] On-chain signing failed from AI panel, falling back to local patch:", data.error)
+              await patchIncidente(incidente.id, { estado: "atendido" })
+            }
+          } catch (e) {
+            console.error("[ai-activity-log] On-chain dispatch error from AI panel, falling back to local patch:", e)
+            await patchIncidente(incidente.id, { estado: "atendido" })
+          }
+
           setTimeout(async () => {
             const respawn = buildRespawnIncident({ tipo: incidente.tipo, fuente: incidente.fuente })
             await createIncidente(respawn)

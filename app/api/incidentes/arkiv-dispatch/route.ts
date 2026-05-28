@@ -10,31 +10,37 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const incidente: EmergencyIncident = await request.json()
 
+    let entityKey = ""
+    let isSimulated = false
+
     if (!process.env.ARKIV_PRIVATE_KEY || process.env.ARKIV_PRIVATE_KEY === '0xREEMPLAZAR_CON_TU_PRIVATE_KEY_AQUI') {
-      throw new Error('ARKIV_PRIVATE_KEY no configurada en .env.local')
+      entityKey = `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join("")}`
+      isSimulated = true
+      console.warn(`[Arkiv Dispatch] (Simulated Mode) ARKIV_PRIVATE_KEY not set. Generating simulated entityKey: ${entityKey}`)
+    } else {
+      const account = privateKeyToAccount(process.env.ARKIV_PRIVATE_KEY as `0x${string}`)
+
+      const walletClient = createWalletClient({
+        chain: braga,
+        transport: http(),
+        account,
+      })
+
+      const onChainResult = await walletClient.createEntity({
+        payload: jsonToPayload(incidente),
+        contentType: 'application/json',
+        attributes: [
+          { key: 'project', value: 'climate-crisis-dashboard' },
+          { key: 'tipo', value: incidente.tipo || 'general' },
+          { key: 'severidad', value: incidente.severidad || 'medium' },
+          { key: 'ubicacion', value: incidente.ubicacion || 'unknown' },
+          { key: 'status', value: 'dispatched' },
+          { key: 'track', value: 'arkiv' },
+        ],
+        expiresIn: 604800,
+      })
+      entityKey = onChainResult.entityKey
     }
-
-    const account = privateKeyToAccount(process.env.ARKIV_PRIVATE_KEY as `0x${string}`)
-
-    const walletClient = createWalletClient({
-      chain: braga,
-      transport: http(),
-      account,
-    })
-
-    const { entityKey } = await walletClient.createEntity({
-      payload: jsonToPayload(incidente),
-      contentType: 'application/json',
-      attributes: [
-        { key: 'project', value: 'climate-crisis-dashboard' },
-        { key: 'tipo', value: incidente.tipo || 'general' },
-        { key: 'severidad', value: incidente.severidad || 'medium' },
-        { key: 'ubicacion', value: incidente.ubicacion || 'unknown' },
-        { key: 'status', value: 'dispatched' },
-        { key: 'track', value: 'arkiv' },
-      ],
-      expiresIn: 604800,
-    })
 
     // Fetch existing incident to preserve and merge details
     const { data: existing, error: fetchError } = await supabase
@@ -52,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
       ...currentDetails,
       arkiv_entity_key: entityKey,
       dispatched_at: new Date().toISOString(),
-      platform: 'Climate Crisis Dashboard Operator',
+      platform: isSimulated ? 'Climate Crisis Dashboard Operator (Simulado)' : 'Climate Crisis Dashboard Operator',
     }
 
     const { data: dbIncident, error: updateError } = await supabase
