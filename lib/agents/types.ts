@@ -43,6 +43,7 @@ export interface GeminiAnalysis {
   reasoning:          string             // cadena de razonamiento de Gemini
   relatedPostIds:     string[]           // ids de los posts que sustentan el análisis
   suggestedActions:   string[]           // acciones recomendadas
+  arkivKey?:          string
 }
 
 // ---------------------------------------------------------------------------

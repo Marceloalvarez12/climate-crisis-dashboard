@@ -28,6 +28,15 @@ export interface IncidentSourceDetails {
   // Camera
   cameraId?:       string
   cameraLocation?: string
+  // Blockchain / AI Analysis
+  arkiv_entity_key?: string
+  ai_analysis?: {
+    reasoning?: string
+    suggestedActions?: string
+    confidence?: number
+    relatedPostIds?: string[]
+    arkiv_entity_key?: string
+  }
 }
 
 export interface Incident {
