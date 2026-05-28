@@ -1,0 +1,62 @@
+import type { ActivityItem, ReasoningStep } from "./types"
+
+// ---------------------------------------------------------------------------
+// Actividades iniciales mostradas al montar el componente
+// ---------------------------------------------------------------------------
+
+export const initialActivities: ActivityItem[] = [
+  { id: "1", type: "monitoring", message: "Monitoring system started",          timestamp: new Date(Date.now() - 300_000) },
+  { id: "2", type: "extraction", message: "Extracting data from X (Twitter)...", timestamp: new Date(Date.now() - 240_000) },
+  {
+    id: "3",
+    type: "reasoning",
+    message: "Analyzing flood mentions in Tucumán",
+    timestamp: new Date(Date.now() - 180_000),
+    confidence: 92,
+    reasoning: [
+      { step: 1, thought: "Detected 47 tweets with keywords: 'inundacion', 'agua', 'evacuacion' in San Miguel de Tucumán" },
+      { step: 2, thought: "Geolocating tweets... 38 have verifiable coordinates" },
+      { step: 3, thought: "Cross-referencing with historical flood zone data...", action: "Querying municipal database" },
+      { step: 4, thought: "Pattern detected: 89% of reports concentrated within 2km radius of the Historic Center", result: "ALERT VALIDATED" },
+    ] satisfies ReasoningStep[],
+  },
+  { id: "4", type: "database", message: "Saving 47 reports to database", timestamp: new Date(Date.now() - 120_000) },
+]
+
+// ---------------------------------------------------------------------------
+// Mensajes de fondo — sólo monitoreo, sin alertas ni confirmaciones.
+// Las alertas reales ahora las genera Gemini vía /api/agent cada 2 minutos.
+// ---------------------------------------------------------------------------
+
+export const backgroundMessages: Omit<ActivityItem, "id" | "timestamp">[] = [
+  { type: "extraction", message: "Extracting social media data..." },
+  { type: "monitoring", message: "Scanning local news from La Gaceta..." },
+  {
+    type: "reasoning",
+    message: "AI analyzing evacuation patterns...",
+    confidence: 78,
+    reasoning: [
+      { step: 1, thought: "Analyzing real-time traffic flow via Google Maps API" },
+      { step: 2, thought: "Identifying optimal evacuation routes...", action: "Calculating 3 alternative routes" },
+      { step: 3, thought: "Route via Av. Mate de Luna BLOCKED - fallen trees reported" },
+      { step: 4, thought: "Recommended route: Av. Sarmiento → Ruta 9 Norte", result: "Estimated evacuation time: 45 min" },
+    ] satisfies ReasoningStep[],
+  },
+  { type: "database",   message: "Updating resources database" },
+  { type: "extraction", message: "Collecting meteorological sensor data..." },
+  { type: "monitoring", message: "Checking urban surveillance cameras..." },
+  {
+    type: "reasoning",
+    message: "Predicting expansion of affected area...",
+    confidence: 85,
+    reasoning: [
+      { step: 1, thought: "Hydrological model loaded: TucumanFlood_v3.2" },
+      { step: 2, thought: "Inputs: current precipitation, topography, canal levels", action: "Running simulation" },
+      { step: 3, thought: "2-hour projection: expansion toward Barrio Sur likely (73%)" },
+      { step: 4, thought: "Recommendation: preventively alert 340 additional families", result: "Preventive alert generated" },
+    ] satisfies ReasoningStep[],
+  },
+  { type: "extraction", message: "Querying national meteorological API..." },
+  { type: "monitoring", message: "Analyzing hydrological sensors of Río Salí..." },
+  { type: "database",   message: "Syncing with Civil Defense database..." },
+]
