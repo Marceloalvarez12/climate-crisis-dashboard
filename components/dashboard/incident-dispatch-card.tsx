@@ -4,6 +4,7 @@ import { useState } from "react"
 import { CheckCircle2, Loader2, Shield, AlertTriangle, MapPin, Users, Clock, ExternalLink, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { GeneradorReportePDF } from "./GeneradorReportePDF"
 import type { EmergencyIncident, ArkivDispatchResponse } from "@/lib/types"
 
 interface IncidentDispatchCardProps {
@@ -111,8 +112,24 @@ export function IncidentDispatchCard({
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </div>
+          
+          <GeneradorReportePDF
+            incidente={{
+              id: incident.id,
+              tipo: incident.tipo,
+              severidad: incident.severidad,
+              ubicacion: incident.ubicacion,
+              afectados: incident.afectados,
+              timestamp: incident.timestamp,
+              resumenIA: (incident as any).resumenIA || 
+                `Evaluación automática por Zntinel AI: Se identificó una alerta de ${tipoLabel.toLowerCase()} en ${incident.ubicacion} con un nivel de severidad ${incident.severidad}. Se ha completado el registro inmutable on-chain y despachado unidades de respuesta prioritaria.`
+            }}
+            entityKey={key}
+          />
+
           <Button
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            variant="outline"
+            className="w-full border-emerald-800 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-semibold"
             onClick={onDismiss}
           >
             Cerrar Panel
