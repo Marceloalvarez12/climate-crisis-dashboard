@@ -242,7 +242,7 @@ export async function generateIncidentPdf(
 
   // Blockchain Seals
   const hasAiSeal = !!aiKey && aiKey !== "—"
-  const hasDispatchSeal = !!dispatchKey && dispatchKey !== "—"
+  const hasDispatchSeal = !!dispatchKey && dispatchKey !== "—" && dispatchKey !== aiKey
 
   if (hasAiSeal || hasDispatchSeal) {
     y = sectionTitle(doc, y, "REGISTRO DE SEGURIDAD ON-CHAIN (ARKIV NETWORK)")
@@ -653,7 +653,8 @@ export function generateGeneralReport(
       doc.text(displayAiKey, rx + 0.06, y + 0.14)
       rx += hCols[5].w
       // Hash Despacho
-      const dispatchKey = inc.arkiv_key || "—"
+      let dispatchKey = inc.fuente_detalles?.arkiv_entity_key as string || "—"
+      if (dispatchKey === aiKey) dispatchKey = "—"
       const displayDispKey = dispatchKey.length > 25 ? dispatchKey.slice(0, 11) + ".." + dispatchKey.slice(-12) : dispatchKey
       doc.text(displayDispKey, rx + 0.06, y + 0.14)
       doc.setFontSize(6)

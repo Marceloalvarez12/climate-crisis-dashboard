@@ -26,7 +26,7 @@ export function dbToIncident(inc: DbIncident): Incident {
     source:         inc.fuente as Incident["source"],
     sourceDetails:  inc.fuente_detalles || {},
     estado:         inc.estado,
-    arkiv_key:      inc.arkiv_key,
+    arkiv_key:      (inc.fuente_detalles as any)?.arkiv_entity_key,
   }
 }
 

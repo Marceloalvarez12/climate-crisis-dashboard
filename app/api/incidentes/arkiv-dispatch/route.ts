@@ -68,7 +68,6 @@ export async function POST(request: Request): Promise<Response> {
         fuente: existing?.fuente || 'social',
         fuente_detalles: updatedDetails,
         estado: 'atendido',
-        arkiv_key: entityKey,
         updated_at: new Date().toISOString(),
       })
       .select()
