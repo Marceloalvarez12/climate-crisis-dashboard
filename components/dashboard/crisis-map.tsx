@@ -18,7 +18,7 @@ import { IncidentIcon, SourceIcon, severityColorClass, sourceLabel, incidentType
 import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./crisis-map/leaflet-icon"
 import { IncidentDetailModal, DeployModal } from "./crisis-map/map-modals"
 import { IncidentDispatchCard } from "./incident-dispatch-card"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
 // ---------------------------------------------------------------------------
 // Lazy-load de componentes Leaflet (sólo cliente)
@@ -52,9 +52,10 @@ export function CrisisMap() {
   const [deployingResources, setDeployingResources] = useState(false)
   const [deploySuccess,      setDeploySuccess]      = useState(false)
   const [selectedCounts,     setSelectedCounts]     = useState<Record<string, number>>({})
+  const [viewMode,           setViewMode]           = useState<"activo" | "atendido">("activo")
 
   // ── Data ──────────────────────────────────────────────────────────────────
-  const { incidents: dbIncidents, mutate: mutateIncidents } = useIncidents()
+  const { incidents: dbIncidents, mutate: mutateIncidents } = useIncidents(viewMode)
   const { data: dbRecursos, mutate: mutateRecursos }        = useResources()
 
   // All incidents come from the database (real + respawned)
@@ -117,20 +118,34 @@ export function CrisisMap() {
     })
   }
 
+  const handleConfirmDeploymentTransition = () => {
+    const totalSelected = Object.values(selectedCounts).reduce((a, b) => a + b, 0)
+    if (totalSelected === 0) {
+      toast.error("Seleccione al menos un recurso para desplegar")
+      return
+    }
+    setShowDeployModal(false)
+    setShowBlockchainModal(true)
+  }
+
+  const handleCloseConfirmDispatch = () => {
+    setShowBlockchainModal(false)
+    setSelectedIncident(null)
+    setSelectedCounts({})
+    mutateRecursos()
+  }
+
   const handleDeployResources = async () => {
     const totalSelected = Object.values(selectedCounts).reduce((a, b) => a + b, 0)
-    if (totalSelected === 0) { toast.error("Select at least one resource to deploy"); return }
+    if (totalSelected === 0) {
+      toast.error("Seleccione al menos un recurso para desplegar")
+      return
+    }
 
-    const incidenteId    = selectedIncident?.id
-    const incidenteTipo  = selectedIncident?.type
-    const incidenteFuente = selectedIncident?.source
-
-    // IDs a despachar (calculados antes de cualquier async)
+    const incidenteId = selectedIncident?.id
     const idsToDispatch = resourceGroups.flatMap((g) =>
       g.availableIds.slice(0, selectedCounts[g.tipo] ?? 0)
     )
-
-    setDeployingResources(true)
 
     // Optimistic update en cache
     if (dbRecursos) {
@@ -153,9 +168,6 @@ export function CrisisMap() {
       await mutateRecursos()
     }
 
-    setDeployingResources(false)
-    setDeploySuccess(true)
-
     // Respawn 90s después
     if (incidenteId) {
       const incidenteTipo  = selectedIncident?.type
@@ -165,17 +177,6 @@ export function CrisisMap() {
         await createIncidente(respawn).catch((err) => console.error("[CrisisMap] Error creating respawn incident:", err))
       }, 90_000)
     }
-
-    toast.success(`Resources deployed to ${selectedIncident?.location}`, {
-      description: `${idsToDispatch.length} unit(s) on their way`,
-    })
-
-    setTimeout(() => {
-      setShowDeployModal(false)
-      setDeploySuccess(false)
-      setSelectedCounts({})
-      mutateRecursos()
-    }, 2000)
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -247,37 +248,87 @@ export function CrisisMap() {
 
       {/* ── Incident list panel ────────────────────────────────────── */}
       <div className="relative z-10 mt-0 w-full rounded-none border-b border-border bg-card/95 backdrop-blur-sm shadow-none md:absolute md:right-3 md:top-14 md:z-[1000] md:w-72 md:max-h-[420px] md:rounded-lg md:border md:shadow-xl">
-        <div className="flex items-center justify-between border-b border-border bg-card px-3 py-2 rounded-t-lg">
-          <p className="text-xs font-semibold text-foreground">Active Incidents ({filteredIncidents.length})</p>
-          <Badge variant="outline" className="text-[9px] border-primary/50 text-primary animate-pulse">Live</Badge>
-        </div>
-        <div className="overflow-y-auto max-h-48 p-2 space-y-1.5 custom-scrollbar md:max-h-[370px]">
-          {filteredIncidents.map((incident) => (
+        <div className="flex flex-col border-b border-border bg-card rounded-t-lg">
+          <div className="flex border-b border-border/60">
             <button
-              key={incident.id}
-              onClick={() => setSelectedIncident(incident)}
+              onClick={() => setViewMode("activo")}
               className={cn(
-                "w-full text-left rounded-lg border p-2 transition-all hover:bg-secondary/50 hover:scale-[1.01]",
-                incident.severity === "critical" ? "border-primary/50 bg-primary/5" :
-                incident.severity === "high"     ? "border-accent/50 bg-accent/5"   : "border-border",
+                "flex-1 py-2 text-[10px] font-semibold transition-all border-b-2 text-center cursor-pointer",
+                viewMode === "activo"
+                  ? "border-primary text-primary bg-primary/5"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/20"
               )}
             >
-              <div className="flex items-start gap-2">
-                <div className={cn("rounded-full p-1.5 flex items-center justify-center shrink-0", severityColorClass(incident.severity))}>
-                  <IncidentIcon type={incident.type} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">{incident.location}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="outline" className="text-[9px] h-4 px-1">
-                      {incidentTypeLabel(incident.type)}
-                    </Badge>
-                    <span className="text-[9px] text-muted-foreground">{incident.affectedPeople} affected</span>
+              Activos ({viewMode === "activo" ? filteredIncidents.length : 0})
+            </button>
+            <button
+              onClick={() => setViewMode("atendido")}
+              className={cn(
+                "flex-1 py-2 text-[10px] font-semibold transition-all border-b-2 text-center cursor-pointer",
+                viewMode === "atendido"
+                  ? "border-accent text-accent bg-accent/5"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/20"
+              )}
+            >
+              Historial ({viewMode === "atendido" ? filteredIncidents.length : 0})
+            </button>
+          </div>
+          <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/10">
+            <p className="text-[9px] font-medium text-muted-foreground">
+              {viewMode === "activo" ? "Monitoreo en Tiempo Real" : "Auditoría On-Chain Braga"}
+            </p>
+            {viewMode === "activo" ? (
+              <Badge variant="outline" className="text-[8px] h-4 border-primary/50 text-primary animate-pulse px-1.5">LIVE</Badge>
+            ) : (
+              <Badge variant="outline" className="text-[8px] h-4 border-emerald-500/50 text-emerald-400 gap-1 px-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                AUDITADO
+              </Badge>
+            )}
+          </div>
+        </div>
+        <div className="overflow-y-auto max-h-48 p-2 space-y-1.5 custom-scrollbar md:max-h-[350px]">
+          {filteredIncidents.length === 0 ? (
+            <p className="text-[10px] text-muted-foreground text-center py-4">No hay incidentes para mostrar</p>
+          ) : (
+            filteredIncidents.map((incident) => (
+              <button
+                key={incident.id}
+                onClick={() => setSelectedIncident(incident)}
+                className={cn(
+                  "w-full text-left rounded-lg border p-2 transition-all hover:bg-secondary/50 hover:scale-[1.01] cursor-pointer",
+                  viewMode === "activo"
+                    ? (incident.severity === "critical" ? "border-primary/50 bg-primary/5" :
+                       incident.severity === "high"     ? "border-accent/50 bg-accent/5"   : "border-border")
+                    : "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40"
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <div className={cn("rounded-full p-1.5 flex items-center justify-center shrink-0", 
+                    viewMode === "activo" ? severityColorClass(incident.severity) : "bg-emerald-500/10 text-emerald-400"
+                  )}>
+                    <IncidentIcon type={incident.type} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-xs font-medium text-foreground truncate">{incident.location}</p>
+                      {viewMode === "atendido" && (
+                        <Badge variant="outline" className="text-[7px] h-3 px-1 border-emerald-500/30 text-emerald-400 font-mono shrink-0">
+                          ON-CHAIN
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-[9px] h-4 px-1">
+                        {incidentTypeLabel(incident.type)}
+                      </Badge>
+                      <span className="text-[9px] text-muted-foreground">{incident.affectedPeople} afectados</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -329,11 +380,10 @@ export function CrisisMap() {
 
       {/* ── Modales ─────────────────────────────────────────────────── */}
       <IncidentDetailModal
+        isOpen={!!selectedIncident && !showDeployModal && !showBlockchainModal}
         incident={selectedIncident}
-        showDeployModal={showDeployModal}
         onClose={() => setSelectedIncident(null)}
         onOpenDeploy={handleOpenDeploy}
-        onOpenBlockchain={() => setShowBlockchainModal(true)}
       />
 
       <DeployModal
@@ -345,12 +395,13 @@ export function CrisisMap() {
         deployingResources={deployingResources}
         deploySuccess={deploySuccess}
         onClose={handleCloseDeploy}
-        onDeploy={handleDeployResources}
+        onDeploy={handleConfirmDeploymentTransition}
         onAdjustCount={adjustCount}
       />
 
-      <Dialog open={showBlockchainModal} onOpenChange={setShowBlockchainModal}>
+      <Dialog open={showBlockchainModal} onOpenChange={handleCloseConfirmDispatch}>
         <DialogContent className="max-w-md p-0 bg-transparent border-none z-[9999]">
+          <DialogTitle className="sr-only">Desplegar Recursos</DialogTitle>
           {selectedIncident && (
             <IncidentDispatchCard
               incident={{
@@ -361,13 +412,12 @@ export function CrisisMap() {
                 afectados: selectedIncident.affectedPeople,
                 timestamp: selectedIncident.timestamp ? new Date(selectedIncident.timestamp).toISOString() : new Date().toISOString(),
               }}
+              selectedCounts={selectedCounts}
+              onConfirmDispatch={handleDeployResources}
               onDispatchSuccess={() => {
                 mutateIncidents()
               }}
-              onDismiss={() => {
-                setShowBlockchainModal(false)
-                setSelectedIncident(null)
-              }}
+              onDismiss={handleCloseConfirmDispatch}
             />
           )}
         </DialogContent>
