@@ -105,7 +105,7 @@ export function ReasoningPanel({
                 AI Report Certified On-Chain
               </Badge>
               <a
-                href={`https://braga.explorer.arkiv.network/entity/${activity.arkivKey}`}
+                href={`https://explorer.braga.hoodi.arkiv.network/entity/${activity.arkivKey}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[9px] text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 self-start sm:self-auto"

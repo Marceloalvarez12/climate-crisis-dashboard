@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { ShieldCheck, ShieldAlert, Loader2, ArrowLeft, Search, Copy, Check, ExternalLink, Calendar, Users, MapPin, AlertTriangle, FileJson } from "lucide-react"
+import { ShieldCheck, ShieldAlert, Loader2, ArrowLeft, Search, Copy, Check, ExternalLink, Calendar, Users, MapPin, AlertTriangle, FileJson, Cpu, UserCheck, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
@@ -24,6 +24,14 @@ function AuditoriaContent() {
     creator: string
     expiresAtBlock: string | null
     payload: any
+    isSimulated?: boolean
+    linkedEntity?: {
+      key: string
+      creator: string
+      expiresAtBlock: string | null
+      payload: any
+    } | null
+    relation?: 'detection_to_dispatch' | 'dispatch_to_detection' | null
   } | null>(null)
 
   const handleVerify = async (keyToVerify: string) => {
@@ -53,6 +61,9 @@ function AuditoriaContent() {
           creator: json.creator,
           expiresAtBlock: json.expiresAtBlock,
           payload: json.payload,
+          isSimulated: json.isSimulated,
+          linkedEntity: json.linkedEntity,
+          relation: json.relation,
         })
         setVerified(true)
         toast.success("Verificación Completada", {
@@ -234,12 +245,18 @@ function AuditoriaContent() {
                     {copied ? <Check className="h-3 w-3 mr-1.5 text-emerald-400" /> : <Copy className="h-3 w-3 mr-1.5" />}
                     Compartir Reporte
                   </Button>
-                  <Button variant="outline" size="sm" asChild className="h-8 text-xs border-emerald-500/20 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40">
-                    <a href={`https://braga.explorer.arkiv.network/entity/${inputKey}`} target="_blank" rel="noopener noreferrer">
-                      Explorador Arkiv
-                      <ExternalLink className="h-3 w-3 ml-1.5" />
-                    </a>
-                  </Button>
+                  {data.isSimulated ? (
+                    <Badge className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-xs">
+                      Solo Local (Simulación)
+                    </Badge>
+                  ) : (
+                    <Button variant="outline" size="sm" asChild className="h-8 text-xs border-emerald-500/20 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40">
+                      <a href={`https://explorer.braga.hoodi.arkiv.network/entity/${inputKey}`} target="_blank" rel="noopener noreferrer">
+                        Explorador Arkiv
+                        <ExternalLink className="h-3 w-3 ml-1.5" />
+                      </a>
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -264,90 +281,244 @@ function AuditoriaContent() {
               </div>
             </div>
 
-            {/* Decoded Metadata Card */}
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-6 space-y-4">
-              <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
-                <FileJson className="h-4.5 w-4.5 text-zinc-500" />
-                Payload de Emergencia Decodificado
-              </h3>
+            {/* Timeline de Auditoría Criptográfica */}
+            {data.linkedEntity ? (
+              <div className="space-y-6">
+                <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+                  <RefreshCw className="h-4.5 w-4.5 text-emerald-500 animate-spin-slow" />
+                  Línea de Tiempo de Auditoría Enlazada (Multi-Key)
+                </h3>
 
-              {data.payload && typeof data.payload === "object" ? (
-                <div className="space-y-4">
-                  {/* Visual Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {data.payload.tipo && (
-                      <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
-                        <p className="text-[10px] text-zinc-500 uppercase mb-1">Tipo de Incidente</p>
-                        <div className="flex items-center gap-1.5">
-                          <AlertTriangle className="h-4 w-4 text-zinc-400" />
-                          <span className="text-xs font-semibold text-zinc-200">
-                            {tipoLabel[data.payload.tipo] || data.payload.tipo}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {data.payload.severidad && (
-                      <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
-                        <p className="text-[10px] text-zinc-500 uppercase mb-1">Severidad</p>
-                        <Badge className={severityColor[data.payload.severidad] || "bg-zinc-800"}>
-                          {data.payload.severidad.toUpperCase()}
-                        </Badge>
-                      </div>
-                    )}
-                    {data.payload.ubicacion && (
-                      <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
-                        <p className="text-[10px] text-zinc-500 uppercase mb-1">Ubicación Registrada</p>
-                        <div className="flex items-center gap-1.5 truncate">
-                          <MapPin className="h-4 w-4 text-zinc-400" />
-                          <span className="text-xs font-semibold text-zinc-200 truncate" title={data.payload.ubicacion}>
-                            {data.payload.ubicacion}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {data.payload.afectados !== undefined && (
-                      <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
-                        <p className="text-[10px] text-zinc-500 uppercase mb-1">Población Afectada</p>
-                        <div className="flex items-center gap-1.5">
-                          <Users className="h-4 w-4 text-zinc-400" />
-                          <span className="text-xs font-semibold text-zinc-200">
-                            {data.payload.afectados} personas
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {data.payload.timestamp && (
-                      <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3 col-span-1 md:col-span-2">
-                        <p className="text-[10px] text-zinc-500 uppercase mb-1">Timestamp del Suceso</p>
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4 text-zinc-400" />
-                          <span className="text-xs font-mono text-zinc-300">
-                            {new Date(data.payload.timestamp).toLocaleString("es-AR")}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                <div className="relative border-l border-zinc-800 ml-4 pl-6 space-y-8">
+                  {/* Nodo 1: Detección de IA */}
+                  {(() => {
+                    const isQueryingDetection = data.relation === 'detection_to_dispatch'
+                    const detectionData = isQueryingDetection ? data : data.linkedEntity
+                    const payload = detectionData.payload
 
-                  {/* Raw JSON viewer */}
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider">JSON Crudo On-Chain</p>
-                    <pre className="font-mono text-xs text-emerald-400/90 bg-black/60 p-4 rounded-lg border border-zinc-800 overflow-x-auto max-h-60 custom-scrollbar">
-                      {JSON.stringify(data.payload, null, 2)}
-                    </pre>
-                  </div>
+                    return (
+                      <div className="relative">
+                        {/* Dot */}
+                        <div className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-purple-500 bg-black text-purple-400">
+                          <Cpu className="h-2 w-2" />
+                        </div>
+                        
+                        <div className="rounded-xl border border-purple-500/20 bg-purple-950/5 p-5 space-y-3 shadow-lg backdrop-blur-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-mono">
+                                🤖 DETECCIÓN IA
+                              </Badge>
+                              <h4 className="text-sm font-bold text-zinc-200">
+                                {payload.agent || 'Gemini 2.0 Flash'}
+                              </h4>
+                            </div>
+                            <span className="text-[10px] text-zinc-500 font-mono">
+                              {payload.scannedAt ? new Date(payload.scannedAt).toLocaleTimeString('es-AR') : 'Escaneado'}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-zinc-300 font-medium">
+                            <span className="text-zinc-500 font-semibold">Alerta en:</span> {payload.location}
+                          </p>
+
+                          {payload.summary && (
+                            <div className="p-2.5 rounded bg-black/40 border border-zinc-800 text-xs text-zinc-300 leading-relaxed font-sans">
+                              {payload.summary}
+                            </div>
+                          )}
+
+                          {payload.reasoning && (
+                            <div className="text-[11px] text-purple-300 bg-purple-950/20 border border-purple-900/30 p-2.5 rounded">
+                              <span className="font-bold text-purple-400 block mb-1">Razonamiento de IA:</span>
+                              {payload.reasoning}
+                            </div>
+                          )}
+
+                          {payload.suggestedActions && (
+                            <div className="text-[11px] text-zinc-400">
+                              <span className="font-semibold text-zinc-300 block mb-0.5">Acciones Sugeridas:</span>
+                              {payload.suggestedActions}
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-3 pt-2 text-[10px] text-zinc-500 font-mono border-t border-zinc-800/40">
+                            <span>Confianza: {payload.confidence ?? 90}%</span>
+                            <span>Tipo: {tipoLabel[payload.type || payload.tipo] || payload.type || payload.tipo}</span>
+                            <span>Key: <span className="text-purple-400 select-all font-semibold">{(isQueryingDetection ? inputKey : data.linkedEntity?.key || '').slice(0, 10)}...</span></span>
+                            {data.isSimulated ? (
+                              <Badge className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[8px] px-1 h-4">Simulación</Badge>
+                            ) : (
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] px-1 h-4">Lease Extendido</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Nodo 2: Confirmación Humana y Despacho */}
+                  {(() => {
+                    const isQueryingDispatch = data.relation === 'dispatch_to_detection'
+                    const dispatchData = isQueryingDispatch ? data : data.linkedEntity
+                    const payload = dispatchData.payload
+
+                    return (
+                      <div className="relative">
+                        {/* Dot */}
+                        <div className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-orange-500 bg-black text-orange-400">
+                          <UserCheck className="h-2 w-2" />
+                        </div>
+
+                        <div className="rounded-xl border border-orange-500/20 bg-orange-950/5 p-5 space-y-3 shadow-lg backdrop-blur-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[10px] font-mono">
+                                👤 CONFIRMACIÓN Y DESPACHO
+                              </Badge>
+                              <h4 className="text-sm font-bold text-zinc-200">
+                                Operador Defensa Civil
+                              </h4>
+                            </div>
+                            <span className="text-[10px] text-zinc-500 font-mono">
+                              {payload.dispatchedAt ? new Date(payload.dispatchedAt).toLocaleTimeString('es-AR') : 'Despachado'}
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-lg bg-black/40 border border-orange-950/15 text-xs text-zinc-300 space-y-1.5 font-mono">
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Operador Wallet:</span>
+                              <span className="text-zinc-400 truncate w-32 text-right select-all" title={payload.operator}>{payload.operator}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Ubicación Despliegue:</span>
+                              <span className="text-orange-400 font-sans font-semibold">{payload.ubicacion}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Severidad de Emergencia:</span>
+                              <Badge className={severityColor[payload.severidad] || "bg-zinc-800"}>
+                                {payload.severidad?.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Población Afectada:</span>
+                              <span className="text-zinc-300">{payload.afectados ?? payload.personas_afectadas} personas</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-3 pt-2 text-[10px] text-zinc-500 font-mono border-t border-zinc-800/40">
+                            <span>Estado: Recursos Desplegados</span>
+                            <span>Key Despacho: <span className="text-orange-400 select-all font-semibold">{(isQueryingDispatch ? inputKey : data.linkedEntity?.key || '').slice(0, 10)}...</span></span>
+                            <span>Vence en bloque: {dispatchData.expiresAtBlock || '999999'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
-              ) : (
-                <div className="p-4 rounded bg-zinc-950 text-center font-mono text-xs text-zinc-500">
-                  El payload no contiene un formato de datos descriptivo.
-                </div>
-              )}
-
-              <div className="text-[11px] text-zinc-500 flex items-center justify-between pt-4 border-t border-zinc-800/80 font-mono">
-                <span>Vence en Bloque: {data.expiresAtBlock || "Infinito"}</span>
-                <span>Namespace: climate-crisis-dashboard</span>
               </div>
-            </div>
+            ) : (
+              /* Decoded Metadata Card (Single entity fallback) */
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-6 space-y-4">
+                <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+                  <FileJson className="h-4.5 w-4.5 text-zinc-500" />
+                  {data.payload.action === 'dispatch' ? 'Payload de Despacho Operativo' : 
+                   data.payload.agent ? 'Payload de Detección por Agente de IA' : 
+                   'Payload de Emergencia Decodificado'}
+                </h3>
+
+                {data.payload && typeof data.payload === "object" ? (
+                  <div className="space-y-4">
+                    {/* Visual Fields */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {(data.payload.tipo || data.payload.type) && (
+                        <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Tipo de Incidente</p>
+                          <div className="flex items-center gap-1.5">
+                            <AlertTriangle className="h-4 w-4 text-zinc-400" />
+                            <span className="text-xs font-semibold text-zinc-200">
+                              {tipoLabel[data.payload.tipo || data.payload.type] || data.payload.tipo || data.payload.type}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {(data.payload.severidad || data.payload.severity) && (
+                        <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Severidad</p>
+                          <Badge className={severityColor[data.payload.severidad || data.payload.severity] || "bg-zinc-800"}>
+                            {(data.payload.severidad || data.payload.severity).toUpperCase()}
+                          </Badge>
+                        </div>
+                      )}
+                      {data.payload.ubicacion && (
+                        <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Ubicación Registrada</p>
+                          <div className="flex items-center gap-1.5 truncate">
+                            <MapPin className="h-4 w-4 text-zinc-400" />
+                            <span className="text-xs font-semibold text-zinc-200 truncate" title={data.payload.ubicacion}>
+                              {data.payload.ubicacion}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {(data.payload.afectados !== undefined || data.payload.affectedPeople !== undefined) && (
+                        <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Población Afectada</p>
+                          <div className="flex items-center gap-1.5">
+                            <Users className="h-4 w-4 text-zinc-400" />
+                            <span className="text-xs font-semibold text-zinc-200">
+                              {data.payload.afectados ?? data.payload.affectedPeople} personas
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {(data.payload.timestamp || data.payload.scannedAt || data.payload.dispatchedAt) && (
+                        <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3 col-span-1 md:col-span-2">
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Timestamp del Registro</p>
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="h-4 w-4 text-zinc-400" />
+                            <span className="text-xs font-mono text-zinc-300">
+                              {new Date(data.payload.timestamp || data.payload.scannedAt || data.payload.dispatchedAt).toLocaleString("es-AR")}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* AI Reasoning card if AI detection but single key */}
+                    {data.payload.reasoning && (
+                      <div className="text-xs text-purple-300 bg-purple-950/20 border border-purple-900/30 p-3.5 rounded-lg space-y-1.5">
+                        <span className="font-bold text-purple-400 block">Razonamiento del Agente de IA:</span>
+                        <p className="leading-relaxed">{data.payload.reasoning}</p>
+                        {data.payload.suggestedActions && (
+                          <div className="pt-2 text-zinc-400">
+                            <span className="font-semibold text-zinc-300 block mb-0.5">Acciones Sugeridas:</span>
+                            <p>{data.payload.suggestedActions}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Raw JSON viewer */}
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider">JSON Crudo On-Chain</p>
+                      <pre className="font-mono text-xs text-emerald-400/90 bg-black/60 p-4 rounded-lg border border-zinc-800 overflow-x-auto max-h-60 custom-scrollbar">
+                        {JSON.stringify(data.payload, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded bg-zinc-950 text-center font-mono text-xs text-zinc-500">
+                    El payload no contiene un formato de datos descriptivo.
+                  </div>
+                )}
+
+                <div className="text-[11px] text-zinc-500 flex items-center justify-between pt-4 border-t border-zinc-800/80 font-mono">
+                  <span>Vence en Bloque: {data.expiresAtBlock || "Infinito"}</span>
+                  <span>Namespace: climate-crisis-dashboard</span>
+                </div>
+              </div>
+            )}
 
           </div>
         )}

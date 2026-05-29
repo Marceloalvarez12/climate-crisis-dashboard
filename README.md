@@ -10,51 +10,64 @@ El sistema demuestra cómo la convergencia de **Inteligencia Artificial (Google 
 ## 👥 Datos del Equipo
 *   **Participante:** Alvarez, Marcelo Simon
 *   **Rol:** Fullstack Developer & Web3/AI Integrator
-*   **Repositorio del Proyecto:** [climate-crisis-dashboard](https://github.com/Arkiv-Network/arkiv-puna-tech-hackathon) (Desarrollado durante el Puna Tech Challenge 2026)
+*   **Repositorio del Proyecto:** [climate-crisis-dashboard](https://github.com/Arkiv-Network/arkiv-puna-tech-hackathon)
+
+---
+
+## 🚀 Arquitectura Avanzada e Integración Blockchain Premium
+
+Para este desafío, hemos llevado la integración de **Arkiv Blockchain** a un nivel sumamente competitivo, inspirándonos en la arquitectura de proyectos ganadores previos como `ark-hive` (pensamientos on-chain enlazados) y `Cortex` (ciclo de vida de memoria evolutiva).
+
+### 1. "Darwinian Emergency Lease" (Inspirado en Cortex)
+Actualmente, subir reportes masivos a una red descentralizada de forma permanente genera saturación y costos innecesarios. Implementamos un sistema de ciclo de vida evolutivo dinámico:
+*   **Detección de IA (Lease Corto)**: Cuando el `SocialMediaAgent` detecta un incidente en redes sociales, lo registra en **Braga Testnet** con un lease corto de **1 hora** (`expiresIn: 3600`). Si no hay intervención humana en ese lapso, el reporte "muere" (decae) y se auto-elimina del ledger on-chain, limpiando el histórico de falsas alarmas.
+*   **Validación Humana (Extensión de Lease)**: En cuanto el operador civil confirma el incidente y despacha unidades desde el panel de control, el backend llama a `walletClient.extendEntity` para **extender la vida del reporte original a 7 días** (`expiresIn: 604800`). Solo las crisis reales validadas por humanos perduran en el ledger de largo plazo.
+
+### 2. "Tethered Audit Trail" (Inspirado en ark-hive)
+En lugar de registrar eventos de despacho aislados, el sistema genera una línea de auditoría criptográficamente enlazada:
+*   Al despachar recursos, se emite una transacción en Braga Testnet que crea un nuevo registro inmutable con el payload de despacho (unidades enviadas, dirección del operador, fecha, etc.).
+*   Este registro incluye un atributo de búsqueda indexado `detectionKey` que apunta directamente a la Entity Key de la detección inicial de IA. Esto permite trazar el camino completo (Detección de IA ➡️ Validación Humana) sin depender de una base de datos centralizada.
+
+### 3. Portal de Auditoría Ciudadana Interactivo (`/auditoria`)
+Rediseñamos la página de auditoría ciudadana para ofrecer una visualización en línea de tiempo interactiva y animada:
+*   Si la Entity Key consultada tiene una entidad vinculada (una alerta enlazada con un despacho o viceversa), el portal realiza consultas en paralelo a la blockchain y renderiza la **Línea de Tiempo de Auditoría de la Emergencia**:
+    1.  🤖 **Paso 1: Detección por IA**: Muestra la fecha de escaneo, la severidad original, el nivel de confianza y el razonamiento analítico de Gemini 2.0 Flash sellado en la blockchain.
+    2.  👤 **Paso 2: Validación y Despacho Humano**: Detalla los recursos desplegados, el vencimiento del lease extendido a 7 días, y la dirección de la billetera del operador que firmó la acción.
+
+### 4. Resolución de Entidades Híbridas (On-Chain + DB Fallback)
+Para garantizar la mejor experiencia durante demostraciones híbridas (donde un incidente puede originarse de sensores locales simulados pero recibir un despacho real on-chain):
+*   Nuestra API `/api/incidentes/arkiv-verify/[key]` resuelve dinámicamente las claves cruzadas.
+*   Si se busca un despacho real en Braga Testnet cuya alerta original fue generada por el simulador local, el endpoint recupera la firma y metadatos de Braga y reconstruye transparentemente el paso de IA desde Supabase, permitiendo visualizar la línea de tiempo auditada en su totalidad sin romperse.
+
+---
+
+## 🛠️ Mitigación de Errores Críticos (Web3 Shielding)
+
+Durante el despliegue del proyecto, identificamos y solucionamos dos problemas estructurales de red y seguridad:
+1.  **Protección de API y Headers de Middleware**:
+    El middleware de Next.js (`middleware.ts`) restringe el acceso a los endpoints internos de la API `/api/*` mediante un token de autenticación (`x-api-secret`). Corregimos las llamadas asíncronas de despacho (`/api/incidentes/arkiv-dispatch`) agregando la cabecera correspondiente de forma segura desde el cliente con la variable expuesta `NEXT_PUBLIC_API_SECRET`. Esto desbloqueó el flujo de firma on-chain que previamente era interrumpido con errores `401 Unauthorized`.
+2.  **Alineación de Redirección del Explorador**:
+    Corregimos las rutas de redirección hacia el explorador de bloques de Braga. Previamente apuntaban al subdominio RPC (`braga.hoodi.arkiv.network`) el cual devolvía errores `404 page not found`. Se modificaron todos los enlaces en el dashboard, historial y código QR para apuntar al explorador Blockscout oficial en **`https://explorer.braga.hoodi.arkiv.network/entity/${key}`**, permitiendo la navegación directa a las entidades del ledger.
 
 ---
 
 ## 🚀 La Solución: ¿Cómo funciona el Climate Crisis Dashboard?
 
-1.  **Ingesta de Reportes Multicanal**: Durante tormentas e inundaciones severas en Tucumán, los canales tradicionales de llamadas colapsan. El sistema simula una ingesta continua desde redes sociales (X/Twitter, Facebook, Instagram), sensores de caudal meteorológico y cámaras de videovigilancia ciudadana.
-2.  **Filtrado e Inferencia por IA (Gemini 2.0 Flash)**: Un Agente de IA lee constantemente la cola de mensajes en tiempo real. Utilizando la API de Gemini, analiza semánticamente el texto y las imágenes de los reportes para:
-    *   Filtrar reportes falsos o irrelevantes (limpieza de ruido).
-    *   Estimar con precisión el número de personas afectadas y clasificar la severidad (`critical`, `high`, `medium`, `low`).
-    *   Extraer la ubicación geográfica y mapearla en coordenadas de Leaflet.
-    *   Sugerir planes de acción rápidos.
-3.  **Monitoreo y Despacho Georreferenciado**: Las alertas verificadas por el Agente de IA se persisten en **Supabase** y se renderizan al instante en el mapa interactivo. El operador del comando de crisis puede evaluar el incidente, seleccionar las unidades específicas a despachar (ambulancias, bomberos, botes, policía, etc.) e iniciar el envío.
+1.  **Ingesta de Reportes Multicanal**: Simula una ingesta continua desde redes sociales (X/Twitter, Facebook, Instagram), sensores de caudal meteorológico y cámaras de videovigilancia ciudadana.
+2.  **Filtrado por IA**: Un Agente de IA lee constantemente la cola de mensajes en tiempo real y, mediante Gemini 2.0 Flash, filtra reportes falsos, estima personas afectadas, clasifica la severidad (`critical`, `high`, `medium`, `low`), extrae la ubicación exacta y sugiere planes de acción.
+3.  **Monitoreo y Despacho Georreferenciado**: Las alertas verificadas por la IA se persisten en **Supabase** y se renderizan al instante en el mapa interactivo. El operador evalúa el incidente, selecciona las unidades a despachar (ambulancias, bomberos, botes, policía, etc.) e inicia el envío.
 4.  **Auditoría y Certificación On-Chain (Arkiv Network)**: Al autorizar el envío, la solicitud se firma digitalmente y se envía a la **Blockchain de Arkiv (Red Braga - Testnet)**. Este proceso crea una entidad inmutable en la blockchain con los detalles específicos del incidente y los recursos asignados.
-5.  **Sello de Auditoría Criptográfica en Tiempo Real**: Una vez registrado el caso on-chain, su estado pasa a `"atendido"`. Desde la pestaña de **Historial**, el operador puede hacer clic en cualquier incidente y ver el **Sello de Verificación Verde**, el cual hace una consulta directa a la blockchain mediante el cliente público de Arkiv para verificar la firma, el emisor y el payload original, con un enlace directo al explorador de bloques de Braga.
-6.  **Reportes PDF con Doble Sello y Planilla Operativa General**:
-    *   **Reporte de Incidente Individual**: Permite descargar un reporte PDF oficial para cada incidente que contiene el **Doble Sello de Verificación On-Chain**: el *Sello de Detección de IA (Gemini 2.0)* (con color esmeralda) y el *Sello de Despacho Operativo (Comando)* (con color azul), ambos con códigos QR individuales que apuntan directamente al explorador de blockchain Braga.
+5.  **Reportes PDF con Doble Sello y Planilla General**:
+    *   **Reporte Individual**: Permite descargar un reporte PDF oficial para cada incidente que contiene el **Doble Sello de Verificación On-Chain**: el *Sello de Detección de IA (Gemini 2.0)* (con color esmeralda) y el *Sello de Despacho Operativo (Comando)* (con color azul), ambos con códigos QR individuales que apuntan directamente al explorador de blockchain Braga.
     *   **Planilla Operativa de Situación**: Genera una planilla de control general consolidada en formato horizontal, que incluye una **Tabla de Historial de Incidentes Auditados On-Chain** detallando los tiempos de resolución, ubicaciones, severidades y los hashes de transacción criptográfica (IA y Despacho) de cada suceso histórico para máxima transparencia administrativa.
 
 ---
 
-## ✨ Características de Competitividad (Portal de Auditoría, Tiempo Real y Efecto WOW)
+## ✨ Características de Competitividad (Efecto WOW)
 
-Para esta entrega del hackathon, hemos integrado tres innovaciones clave destinadas a impresionar a los jueces:
-
-1.  **Portal Público de Auditoría Ciudadana (`/auditoria`)**: 
-    *   Una página web pública e independiente (sin necesidad de loguearse) diseñada para generar confianza y transparencia.
-    *   Cualquier ciudadano, periodista o auditor gubernamental puede ingresar a `/auditoria` y pegar la **Entity Key (Hash de Arkiv)** de Braga Testnet para ver los datos inmutables y originales decodificados en tiempo real directamente de la blockchain.
-    *   **Integración Fluida**: Se puede acceder a este portal con un solo clic desde el botón de la cabecera del dashboard, el enlace de verificación en el modal de detalles de incidentes resueltos, o escaneando el **código QR dinámico** incluido en los reportes PDF individuales descargados.
-2.  **Sincronización en Tiempo Real (Supabase Realtime)**:
-    *   Reemplazamos el polling tradicional en el cliente por conexiones de WebSockets directas con Supabase.
-    *   Cuando un incidente es detectado por la IA o resuelto por un operador, el mapa, la lista de incidentes activos e históricos, y los paneles de analíticas se actualizan instantáneamente de forma reactiva en las pantallas de todos los usuarios sin necesidad de refrescar la pestaña.
-3.  **Animación de Radar Sonar Beacon (Efecto WOW)**:
-    *   Los incidentes de severidad **Crítica** y **Alta** en el mapa interactivo de Leaflet cuentan con una animación de radar expansivo de color a juego con su gravedad. Esta onda de choque visual atrae inmediatamente la atención del operador durante momentos críticos.
-
----
-
-## 🧠 Enfoque de Implementación y Aprendizajes (Arkiv Integration)
-
-Durante el diseño e integración del SDK de Arkiv, nos enfrentamos a desafíos técnicos clave que resolvimos con enfoques innovadores para el hackathon:
-
-*   **Gestión del Ciclo de Vida y Visibilidad**: Al cambiar el estado de los incidentes a `"atendido"` (para que no saturen la pantalla de monitoreo activo), estos desaparecían. Diseñamos un panel de pestañas con estados (`Activos` vs `Historial`) y extendimos la API de Supabase para poder filtrar por estado, permitiendo la auditoría cruzada en cualquier momento.
-*   **Arquitectura Tolerante a Fallos (Fallback Local)**: En una situación de emergencia real, una falla de red Web3 o un problema con las claves privadas del operador no debe impedir el despacho físico de los recursos. Implementamos un sistema de despacho dual: si la firma en la blockchain de Arkiv falla o no está autorizada, el sistema registra el evento localmente en la base de datos y permite que los recursos salgan, notificando al operador sobre la omisión de la firma de manera elegante.
-*   **Verificación Directa Criptográfica**: Para evitar depender de los datos de la base de datos de Supabase (que podrían ser manipulados por administradores locales), el componente `<OnChainVerifier />` utiliza el cliente público del SDK de Arkiv para realizar una lectura directa (`client.getEntity(arkivKey)`) del estado actual en Braga Testnet, contrastando la verdad de la base de datos con la verdad de la blockchain.
-*   **Trazabilidad y Coexistencia de Hashes (Doble Firma IA/Despacho)**: Diseñamos un flujo inteligente de coexistencia criptográfica. Cuando el Agente de IA detecta un incidente en redes o sensores, genera y firma de forma autónoma la alerta on-chain (`ai_analysis.arkiv_entity_key`). Si el operador despacha recursos físicamente, se emite una nueva firma de despacho manual del comando (`fuente_detalles.arkiv_entity_key`). En caso de que el incidente se auto-resuelva de forma pasiva (por timeout de inactividad), no se emite ninguna firma de despacho inválida, permitiendo que la Planilla Operativa (PDF) y el panel del mapa muestren transparentemente el hash de IA y dejen libre (`"—"`) el campo de despacho, garantizando la fidelidad e integridad administrativa de las acciones del Estado.
+1.  **Portal Público de Auditoría Ciudadana (`/auditoria`)**: Una página web pública e independiente (sin necesidad de loguearse) diseñada para generar confianza y transparencia. Cualquier ciudadano, periodista o auditor gubernamental puede ingresar y pegar el Hash de Arkiv para ver los datos inmutables decodificados en tiempo real directamente de la blockchain.
+2.  **Sincronización en Tiempo Real (Supabase Realtime)**: Reemplazamos el polling tradicional en el cliente por conexiones de WebSockets directas con Supabase. Cuando un incidente es detectado por la IA o resuelto por un operador, el mapa, la lista de incidentes activos e históricos, y los paneles de analíticas se actualizan instantáneamente sin refrescar la pestaña.
+3.  **Animación de Radar Sonar Beacon (Efecto WOW)**: Los incidentes de severidad **Crítica** y **Alta** en el mapa interactivo de Leaflet cuentan con una animación de radar expansivo de color a juego con su gravedad. Esta onda de choque visual atrae inmediatamente la atención del operador durante momentos críticos.
 
 ---
 
@@ -67,34 +80,6 @@ Durante el diseño e integración del SDK de Arkiv, nos enfrentamos a desafíos 
 -   **Capa de Base de Datos**: Supabase (PostgreSQL para persistencia relacional en tiempo real)
 -   **Capa de Blockchain**: `@arkiv-network/sdk` (Instanciación de clientes públicos y de billetera en la red Braga Testnet)
 -   **Control del Simulador**: Panel de desarrollo integrado (consola de control en la esquina inferior izquierda)
-
----
-
-## 📦 Estructura del Proyecto
-
-```
-climate-crisis-dashboard/
-├── app/
-│   ├── page.tsx                    # Interfaz principal (Dashboard completo de crisis)
-│   └── api/
-│       ├── agent/                  # Agente IA (Escanea posts y llama a Gemini)
-│       ├── analytics/              # KPIs y analíticas del panel inferior
-│       ├── incidentes/             # CRUD de incidentes en Supabase
-│       │   ├── arkiv-dispatch/     # Firma on-chain de Arkiv y asignación de key
-│       │   ├── arkiv-verify/[key]/ # Consulta directa a Braga Testnet mediante el SDK
-│       │   ├── auto-resolve/       # Resolución de incidentes viejos no atendidos
-│       │   └── respawn/            # Simulación continua de incidentes
-│       └── recursos/               # Control de ambulancias y bomberos
-│           └── auto-reset/         # Restablecimiento de recursos
-├── components/
-│   └── dashboard/
-│       ├── crisis-map.tsx          # Panel del mapa con toggles "Activos" e "Historial"
-│       ├── crisis-map/
-│       │   ├── map-modals.tsx      # Modal de detalle con visor del sello on-chain <OnChainVerifier />
-│       │   ├── use-map-data.ts     # SWR hooks para consulta reactiva
-│       │   └── resource-helpers.ts # Componentes gráficos de recursos
-│       └── incident-dispatch-card.tsx # Módulo Web3 de confirmación y firma de despacho
-```
 
 ---
 
@@ -119,8 +104,6 @@ NEXT_PUBLIC_API_SECRET=clave-aleatoria-de-api
 ARKIV_PRIVATE_KEY=0x_tu_private_key_aqui
 ```
 
-*Nota: Si `ARKIV_PRIVATE_KEY` no está configurada, el simulador funcionará en modo de despacho local y avisará en los logs y notificaciones de la UI.*
-
 ---
 
 ## 🎬 Instalación y Ejecución Local
@@ -134,21 +117,4 @@ ARKIV_PRIVATE_KEY=0x_tu_private_key_aqui
     npm run dev
     ```
 3.  Ingresa a tu navegador en: [http://localhost:3000?dev=true](http://localhost:3000?dev=true).
-    *El parámetro `?dev=true` activa la barra de simulación en la esquina inferior izquierda. Desde allí puedes forzar la ingesta por IA, simular reportes críticos y activar/detener la simulación de llamadas.*
-
----
-
-## 🛡️ Auditoría On-Chain con Arkiv Network
-
-### Registro (Dispatch)
-Al confirmar un despacho, el sistema publica en la blockchain de Arkiv usando una cuenta Web3:
-- **Atributos de Entidad**:
-  - `project`: `climate-crisis-dashboard` (Namespace de separación)
-  - `tipo`: Tipo del incidente (`flood`, `fire`, etc.)
-  - `severidad`: Nivel de severidad
-  - `status`: `dispatched`
-  - `track`: `arkiv`
-- **Expiración**: Establecido en 7 días (`604800` segundos).
-
-### Verificación (Verification)
-Al hacer clic en un incidente del **Historial**, el panel realiza un fetch a `/api/incidentes/arkiv-verify/[key]`. El endpoint consulta directamente el nodo RPC de Braga Testnet. Si la entidad existe, extrae el creador criptográfico y los metadatos exactos de la emergencia, asegurando transparencia absoluta frente a auditorías externas.
+    *El parámetro `?dev=true` activa la barra de simulación en la esquina inferior izquierda. Desde allí puedes forzar la ingesta por IA, simular reportes críticos y activar/detener la simulación.*

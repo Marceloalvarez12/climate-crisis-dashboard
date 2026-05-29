@@ -21,6 +21,7 @@ interface IncidentData {
   ubicacion: string
   afectados: number
   timestamp: string
+  arkivKey?: string
 }
 
 interface IncidentDispatchCardProps {
@@ -60,9 +61,13 @@ export function IncidentDispatchCard({
 
       // [ARKIV ON-CHAIN] — Intento de registro en blockchain con fallback local
       try {
+        const apiSecret = process.env.NEXT_PUBLIC_API_SECRET || ""
         const response = await fetch("/api/incidentes/arkiv-dispatch", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(apiSecret ? { "x-api-secret": apiSecret } : {}),
+          },
           body: JSON.stringify({
             ...incident,
             timestamp: new Date().toISOString(),

@@ -40,6 +40,7 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
     creator: string
     expiresAtBlock: string | null
     payload: any
+    isSimulated?: boolean
   } | null>(null)
 
   useEffect(() => {
@@ -56,6 +57,7 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
             creator: json.creator,
             expiresAtBlock: json.expiresAtBlock,
             payload: json.payload,
+            isSimulated: json.isSimulated,
           })
         } else {
           setError(json.error || "No se pudo recuperar la información de la blockchain.")
@@ -137,15 +139,21 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
 
       <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1.5 border-t border-emerald-500/10">
         <span>Vence en bloque: <strong className="font-mono text-foreground">{data?.expiresAtBlock || 'Infinito'}</strong></span>
-        <a
-          href={`https://braga.explorer.arkiv.network/entity/${arkivKey}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 transition-colors"
-        >
-          Ver en Explorador
-          <ExternalLink className="h-3 w-3" />
-        </a>
+        {data?.isSimulated ? (
+          <span className="text-yellow-500 font-semibold bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 text-[9px]">
+            Simulado (Local)
+          </span>
+        ) : (
+          <a
+            href={`https://explorer.braga.hoodi.arkiv.network/entity/${arkivKey}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 transition-colors"
+          >
+            Ver en Explorador
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
       </div>
     </div>
   )
@@ -193,10 +201,11 @@ export function IncidentDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[9999]">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 z-[9999]">
         {incident && (
           <>
-            <DialogHeader>
+            {/* Fixed header */}
+            <DialogHeader className="shrink-0 px-6 pt-6 pb-3">
               <DialogTitle className="flex items-center gap-3">
                 <div className={cn("rounded-full p-2", severityColorClass(incident.severity))}>
                   <IncidentIcon type={incident.type} />
@@ -217,7 +226,8 @@ export function IncidentDetailModal({
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4">
+            {/* Scrollable body */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4">
               {/* Stats */}
               <div className="grid grid-cols-3 gap-3">
                 <StatCard icon={<Users className="h-4 w-4 mx-auto mb-1 text-primary" />} label="Affected">
@@ -327,9 +337,9 @@ function SourceDetail({ incident }: { incident: Incident }) {
           &quot;{sd.content}&quot;
         </p>
         {sd.imageUrl && (
-          <div className="relative aspect-video rounded-lg overflow-hidden">
-            <img src={sd.imageUrl} alt="Imagen del incidente" className="w-full h-full object-cover" />
-            <div className="absolute bottom-2 right-2">
+          <div className="relative h-[140px] w-full rounded-lg overflow-hidden bg-zinc-950 border border-border/40">
+            <img src={sd.imageUrl} alt="Imagen del incidente" className="absolute inset-0 w-full h-full object-contain" />
+            <div className="absolute bottom-2 right-2 z-10">
               <Badge className="bg-black/70 text-white text-[10px]">Image attached to tweet</Badge>
             </div>
           </div>
@@ -367,15 +377,15 @@ function SourceDetail({ incident }: { incident: Incident }) {
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">Location: {sd.cameraLocation}</p>
       {sd.imageUrl && (
-        <div className="relative aspect-video rounded-lg overflow-hidden">
-          <img src={sd.imageUrl} alt="Captura de cámara" className="w-full h-full object-cover" />
-          <div className="absolute top-2 left-2">
+        <div className="relative h-[140px] w-full rounded-lg overflow-hidden bg-zinc-950 border border-border/40">
+          <img src={sd.imageUrl} alt="Captura de cámara" className="absolute inset-0 w-full h-full object-contain" />
+          <div className="absolute top-2 left-2 z-10">
             <Badge className="bg-red-500/90 text-white text-[10px] animate-pulse">LIVE</Badge>
           </div>
-          <div className="absolute bottom-2 right-2">
+          <div className="absolute bottom-2 right-2 z-10">
             <Badge className="bg-black/70 text-white text-[10px]">{sd.cameraId}</Badge>
           </div>
-          <div className="absolute bottom-2 left-2">
+          <div className="absolute bottom-2 left-2 z-10">
             <Badge className="bg-black/70 text-white text-[10px]">
               {new Date().toLocaleTimeString("en-US")}
             </Badge>

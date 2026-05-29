@@ -145,9 +145,13 @@ export function useSimulationLoop() {
           const incidentes = await fetch("/api/incidentes?estado=activo").then((res) => res.json())
           const incident = Array.isArray(incidentes) ? incidentes.find((i: any) => i.id === incidentId) : null
           if (incident) {
+            const apiSecret = process.env.NEXT_PUBLIC_API_SECRET || ""
             const response = await fetch("/api/incidentes/arkiv-dispatch", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { 
+                "Content-Type": "application/json",
+                ...(apiSecret ? { "x-api-secret": apiSecret } : {}),
+              },
               body: JSON.stringify({
                 id: incidentId,
                 tipo: incident.tipo,

@@ -70,13 +70,35 @@ const STORM_IMAGES = [
   "https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=600",
 ]
 
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=600"
+const VIOLENCE_IMAGES = [
+  "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=600",
+  "https://images.unsplash.com/photo-1505664194779-8bebcb35da64?w=600",
+  "https://images.unsplash.com/photo-1619890831007-a15ecdcd9745?w=600",
+]
+
+const LOOTING_IMAGES = [
+  "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600",
+  "https://images.unsplash.com/photo-1590102421139-3074769fc7e9?w=600",
+]
+
+const ACCIDENT_IMAGES = [
+  "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600",
+  "https://images.unsplash.com/photo-1518364538800-6bcb3f25da49?w=600",
+]
+
+const GENERAL_IMAGES = [
+  "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=600",
+  "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=600",
+]
 
 function pickImage(type: IncidentTipo): string {
   const pool = type === "flood" ? FLOOD_IMAGES
     : type === "fire" ? FIRE_IMAGES
     : type === "storm" ? STORM_IMAGES
-    : [DEFAULT_IMAGE]
+    : type === "violence" ? VIOLENCE_IMAGES
+    : type === "looting" ? LOOTING_IMAGES
+    : type === "accident" ? ACCIDENT_IMAGES
+    : GENERAL_IMAGES
   return pool[Math.floor(Math.random() * pool.length)]
 }
 

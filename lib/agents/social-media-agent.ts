@@ -238,7 +238,7 @@ export class SocialMediaAgent {
             { key: "status", value: "detected" },
             { key: "track", value: "arkiv" },
           ],
-          expiresIn: 604800, // 7 días
+          expiresIn: 3600, // 1 hora (alerta de IA no confirmada decae rápido)
         })
 
         onChainKey = entityKey

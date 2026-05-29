@@ -411,6 +411,7 @@ export function CrisisMap() {
                 ubicacion: selectedIncident.location,
                 afectados: selectedIncident.affectedPeople,
                 timestamp: selectedIncident.timestamp ? new Date(selectedIncident.timestamp).toISOString() : new Date().toISOString(),
+                arkivKey: selectedIncident.arkiv_key,
               }}
               selectedCounts={selectedCounts}
               onConfirmDispatch={handleDeployResources}
