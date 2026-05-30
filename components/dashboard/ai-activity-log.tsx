@@ -88,6 +88,7 @@ export function AIActivityLog() {
   const scrollRef          = useRef<HTMLDivElement>(null)
   const messageIndexRef    = useRef(0)
   const agentScanningRef   = useRef(false)  // evita scans simultáneos
+  const respawnTimersRef    = useRef<Set<NodeJS.Timeout>>(new Set())
 
   const addActivity = useCallback((template: Omit<ActivityItem, "id" | "timestamp">) => {
     setActivities((prev) => [...prev.slice(-20), makeActivity(template)])
@@ -110,6 +111,14 @@ export function AIActivityLog() {
 
   const { mutate } = useSWRConfig()
 
+  // ── Cleanup respawn timer on unmount ──────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      respawnTimersRef.current.forEach((t) => clearTimeout(t))
+      respawnTimersRef.current.clear()
+    }
+  }, [])
+
   // ── Respawn automático cada 4 minutos ────────────────────────────────────
   // Reactivates a random resolved incident (estado atendido → activo, updated_at = now)
   // so the dashboard stays populated even when the Gemini API quota is exhausted.
@@ -125,7 +134,8 @@ export function AIActivityLog() {
         })
         const data = await res.json()
         if (data.respawned && data.incident) {
-          mutate("/api/incidentes")
+          mutate("/api/incidentes?estado=activo")
+          mutate("/api/incidentes?estado=atendido")
           mutate("/api/analytics")
           addActivity({
             type:    "alert",
@@ -214,6 +224,7 @@ export function AIActivityLog() {
     return () => {
       clearTimeout(firstTimer)
       clearInterval(interval)
+      if (respawnTimerRef.current) clearTimeout(respawnTimerRef.current)
     }
   }, [runGeminiScan])
 
@@ -279,7 +290,7 @@ export function AIActivityLog() {
 
     if (confirmDialog.type === "deploy") {
       try {
-        const incidentes: Array<{ id: string; ubicacion: string; tipo: string; fuente: string }> = await fetcher("/api/incidentes")
+        const incidentes: Array<{ id: string; ubicacion: string; tipo: string; fuente: string }> = await fetcher("/api/incidentes?estado=activo")
 
         const incidente = incidentes.find((inc) => {
           const incLoc = inc.ubicacion.toLowerCase()
@@ -289,9 +300,13 @@ export function AIActivityLog() {
 
         if (incidente) {
           try {
+            const apiSecret = process.env.NEXT_PUBLIC_API_SECRET || ""
             const response = await fetch("/api/incidentes/arkiv-dispatch", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                ...(apiSecret ? { "x-api-secret": apiSecret } : {}),
+              },
               body: JSON.stringify({
                 id: incidente.id,
                 tipo: incidente.tipo,
@@ -312,16 +327,24 @@ export function AIActivityLog() {
             await patchIncidente(incidente.id, { estado: "atendido" })
           }
 
-          setTimeout(async () => {
-            const respawn = buildRespawnIncident({ tipo: incidente.tipo, fuente: incidente.fuente })
-            await createIncidente(respawn)
+          const timer = setTimeout(async () => {
+            try {
+              const respawn = buildRespawnIncident({ tipo: incidente.tipo, fuente: incidente.fuente })
+              await createIncidente(respawn)
+            } catch (err) {
+              console.error("[ai-activity-log] Error creating respawn:", err)
+            } finally {
+              respawnTimersRef.current.delete(timer)
+            }
           }, 90_000)
+          respawnTimersRef.current.add(timer)
         }
 
         await dispatchResourceWithLifecycle(incidente?.id, undefined, () => {
           mutate("/api/recursos")
         })
-        mutate("/api/incidentes")
+        mutate("/api/incidentes?estado=activo")
+        mutate("/api/incidentes?estado=atendido")
         mutate("/api/analytics")
       } catch (err) {
           console.error("[ai-activity-log] Error in handleDispatch:", err)

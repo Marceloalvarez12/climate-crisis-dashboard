@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
+import { useEffect, useCallback, useRef } from "react"
 import { useSWRConfig } from "swr"
 
 interface AutoResolveOptions {
@@ -32,6 +32,12 @@ export function useAutoResolve({
 }: AutoResolveOptions = {}) {
   const { mutate } = useSWRConfig()
 
+  // Use refs to avoid infinite re-render loops when callers pass inline arrow functions
+  const onResolvedRef = useRef(onResolved)
+  const onResourcesResetRef = useRef(onResourcesReset)
+  useEffect(() => { onResolvedRef.current = onResolved }, [onResolved])
+  useEffect(() => { onResourcesResetRef.current = onResourcesReset }, [onResourcesReset])
+
   const check = useCallback(async () => {
     const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET ?? ""
     const headers: Record<string, string> = API_SECRET ? { "x-api-secret": API_SECRET } : {}
@@ -45,9 +51,10 @@ export function useAutoResolve({
       if (res.ok) {
         const data = await res.json()
         if (data.resolved > 0) {
-          mutate("/api/incidentes")
+          mutate("/api/incidentes?estado=activo")
+          mutate("/api/incidentes?estado=atendido")
           mutate("/api/analytics")
-          onResolved?.(data.locations ?? [])
+          onResolvedRef.current?.(data.locations ?? [])
         }
       }
     } catch {
@@ -65,14 +72,14 @@ export function useAutoResolve({
         if (data.reset > 0) {
           mutate("/api/recursos")
           const nombres = (data.recursos as Array<{ nombre: string }>).map((r) => r.nombre)
-          onResourcesReset?.(nombres)
+          onResourcesResetRef.current?.(nombres)
           console.log(`[useAutoResolve] ${data.reset} recursos liberados:`, nombres)
         }
       }
     } catch {
       // Non-blocking
     }
-  }, [mutate, onResolved, onResourcesReset])
+  }, [mutate])
 
   useEffect(() => {
     // Ejecutar inmediatamente al montar (limpia recursos atascados desde el arranque)

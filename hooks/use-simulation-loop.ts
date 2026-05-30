@@ -91,7 +91,8 @@ export function useSimulationLoop() {
         },
         estado: "activo",
       })
-      mutate("/api/incidentes")
+      mutate("/api/incidentes?estado=activo")
+      mutate("/api/incidentes?estado=atendido")
       addEvent({ type: "incident_created", message: `Nuevo incidente en ${data.ubicacion}`, incidentId: data.id })
       return data
     } catch {
@@ -132,70 +133,87 @@ export function useSimulationLoop() {
 
       // Recurso llega al incidente después de DISPATCHED_TO_BUSY_MS
       const timer = setTimeout(async () => {
-        // 1. Recurso → busy
-        await patchRecurso(available.id, { estado: "busy" })
-        mutate("/api/recursos")
-        setActiveDispatches((prev) =>
-          prev.map((d) => (d.resourceId === available.id ? { ...d, status: "ocupado" } : d))
-        )
-        addEvent({ type: "resource_arrived", message: `${available.nombre} llegó a ${incidentLocation}`, incidentId, resourceId: available.id })
-
-        // 2. Incidente → atendido (Firma on-chain)
         try {
-          const incidentes = await fetch("/api/incidentes?estado=activo").then((res) => res.json())
-          const incident = Array.isArray(incidentes) ? incidentes.find((i: any) => i.id === incidentId) : null
-          if (incident) {
+          // 1. Recurso → busy
+          await patchRecurso(available.id, { estado: "busy" })
+          mutate("/api/recursos")
+          setActiveDispatches((prev) =>
+            prev.map((d) => (d.resourceId === available.id ? { ...d, status: "ocupado" } : d))
+          )
+          addEvent({ type: "resource_arrived", message: `${available.nombre} llegó a ${incidentLocation}`, incidentId, resourceId: available.id })
+
+          // 2. Incidente → atendido (Firma on-chain)
+          try {
             const apiSecret = process.env.NEXT_PUBLIC_API_SECRET || ""
-            const response = await fetch("/api/incidentes/arkiv-dispatch", {
-              method: "POST",
-              headers: { 
-                "Content-Type": "application/json",
-                ...(apiSecret ? { "x-api-secret": apiSecret } : {}),
-              },
-              body: JSON.stringify({
-                id: incidentId,
-                tipo: incident.tipo,
-                severidad: incident.severidad || "medium",
-                ubicacion: incident.ubicacion,
-                afectados: incident.personas_afectadas || 0,
-              }),
-            })
-            const data = await response.json()
-            if (response.ok && data.success) {
-              console.log("[use-simulation-loop] Dispatch signed on-chain:", data.entityKey)
+            const incidentes = await fetch("/api/incidentes?estado=activo", {
+              headers: apiSecret ? { "x-api-secret": apiSecret } : {},
+            }).then((res) => res.json())
+            const incident = Array.isArray(incidentes) ? incidentes.find((i: any) => i.id === incidentId) : null
+            if (incident) {
+              const response = await fetch("/api/incidentes/arkiv-dispatch", {
+                method: "POST",
+                headers: { 
+                  "Content-Type": "application/json",
+                  ...(apiSecret ? { "x-api-secret": apiSecret } : {}),
+                },
+                body: JSON.stringify({
+                  id: incidentId,
+                  tipo: incident.tipo,
+                  severidad: incident.severidad || "medium",
+                  ubicacion: incident.ubicacion,
+                  afectados: incident.personas_afectadas || 0,
+                }),
+              })
+              const data = await response.json()
+              if (response.ok && data.success) {
+                console.log("[use-simulation-loop] Dispatch signed on-chain:", data.entityKey)
+              } else {
+                console.warn("[use-simulation-loop] On-chain signing failed, falling back to local patch:", data.error)
+                await patchIncidente(incidentId, { estado: "atendido" })
+              }
             } else {
-              console.warn("[use-simulation-loop] On-chain signing failed, falling back to local patch:", data.error)
               await patchIncidente(incidentId, { estado: "atendido" })
             }
-          } else {
+          } catch (e) {
+            console.error("[use-simulation-loop] Error signing dispatch on-chain, falling back to local:", e)
             await patchIncidente(incidentId, { estado: "atendido" })
           }
-        } catch (e) {
-          console.error("[use-simulation-loop] Error signing dispatch on-chain, falling back to local:", e)
-          await patchIncidente(incidentId, { estado: "atendido" })
-        }
-        mutate("/api/incidentes")
-        mutate("/api/analytics")
-        addEvent({ type: "incident_resolved", message: `Incidente en ${incidentLocation} resuelto`, incidentId })
+          mutate("/api/incidentes?estado=activo")
+          mutate("/api/incidentes?estado=atendido")
+          mutate("/api/analytics")
+          addEvent({ type: "incident_resolved", message: `Incidente en ${incidentLocation} resuelto`, incidentId })
 
-        // 3. Recurso → available después de BUSY_TO_AVAILABLE_MS
-        const availableTimer = setTimeout(async () => {
-          await patchRecurso(available.id, { estado: "available", incidente_id: null })
-          mutate("/api/recursos")
+          // 3. Recurso → available después de BUSY_TO_AVAILABLE_MS
+          const availableTimer = setTimeout(async () => {
+            try {
+              await patchRecurso(available.id, { estado: "available", incidente_id: null })
+              mutate("/api/recursos")
+              setActiveDispatches((prev) => prev.filter((d) => d.resourceId !== available.id))
+            } catch (err) {
+              console.error("[use-simulation-loop] Error releasing resource:", err)
+              setActiveDispatches((prev) => prev.filter((d) => d.resourceId !== available.id))
+            }
+          }, RESOURCE_BUSY_TO_AVAILABLE_MS)
+
+          dispatchTimersRef.current.set(`${available.id}-available`, availableTimer)
+          dispatchTimersRef.current.delete(available.id)
+        } catch (err) {
+          console.error("[use-simulation-loop] Dispatch lifecycle error, recovering resource:", err)
+          try { await patchRecurso(available.id, { estado: "available", incidente_id: null }) } catch {}
           setActiveDispatches((prev) => prev.filter((d) => d.resourceId !== available.id))
-        }, RESOURCE_BUSY_TO_AVAILABLE_MS)
-
-        dispatchTimersRef.current.set(`${available.id}-available`, availableTimer)
-        dispatchTimersRef.current.delete(available.id)
+          dispatchTimersRef.current.delete(available.id)
+        }
       }, RESOURCE_DISPATCHED_TO_BUSY_MS)
 
       dispatchTimersRef.current.set(available.id, timer)
     },
-    [mutate, addEvent, spawnIncident], // spawnIncident kept in deps to satisfy exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mutate, addEvent],
   )
 
   // Inicia el loop: primer incidente inmediato, luego cada SIMULATION_SPAWN_INTERVAL_MS
   const startSimulation = useCallback(async () => {
+    if (spawnTimerRef.current) clearInterval(spawnTimerRef.current) // prevent double-start
     setIsRunning(true)
     setEvents([])
     await spawnIncident()

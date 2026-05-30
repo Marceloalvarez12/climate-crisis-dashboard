@@ -15,7 +15,6 @@ interface AnalyticsData {
   affectedNow: number
   affectedChange: number
   avgResponseMin: number | null
-  resolvedCount: number
   activeIncidentCount: number
   incidentsTrend: number | null
   totalResources: number

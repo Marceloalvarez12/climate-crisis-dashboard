@@ -28,12 +28,6 @@ import { supabase }          from "@/lib/supabase"
 import type { SocialConnector, ConnectorOptions } from "./connectors/base"
 import type { AgentScanResult, GeminiAnalysis, SocialPost } from "./types"
 
-// Arkiv SDK imports
-import { createWalletClient, http } from "@arkiv-network/sdk"
-import { braga } from "@arkiv-network/sdk/chains"
-import { privateKeyToAccount } from "@arkiv-network/sdk/accounts"
-import { jsonToPayload } from "@arkiv-network/sdk/utils"
-
 // ---------------------------------------------------------------------------
 // Configuración de búsqueda
 // ---------------------------------------------------------------------------

@@ -7,14 +7,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const estado = searchParams.get("estado") || "activo"
 
-    // ── DARWINIAN DECAY DE REPORTES ACTIVOS ──
-    // Eliminación automática en Supabase de incidentes activos (sin despachar/confirmar) mayores a 1 hora (3600 segundos).
+    // ── DARWINIAN DECAY DE REPORTES DE IA ACTIVOS ──
+    // Eliminación automática en Supabase de incidentes activos detectados por IA (fuente: 'social') mayores a 1 hora (3600 segundos).
     // Esto sincroniza la persistencia relacional con el vencimiento del lease on-chain de Braga Testnet.
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const { error: cleanupError } = await supabase
       .from("incidentes")
       .delete()
       .eq("estado", "activo")
+      .eq("fuente", "social")
       .lt("created_at", oneHourAgo)
 
     if (cleanupError) {
@@ -23,25 +24,26 @@ export async function GET(request: Request) {
       console.log("[Decay Cleanup] Limpieza exitosa de alertas no confirmadas mayores a 1 hora")
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("incidentes")
       .select("*")
       .order("created_at", { ascending: false })
+
+    if (estado === "activo") {
+      // Activos: estado = 'activo' y NO proviene de redes/IA (fuente !== 'social')
+      query = query.eq("estado", "activo").neq("fuente", "social")
+    } else if (estado === "atendido") {
+      // Historial/Atendidos: estado = 'atendido' O (estado = 'activo' y proviene de redes/IA)
+      query = query.or("estado.eq.atendido,and(estado.eq.activo,fuente.eq.social)")
+    }
+
+    const { data, error } = await query
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    let filteredData = data || []
-    if (estado === "activo") {
-      // Activos: estado = 'activo' y NO proviene de redes/IA (fuente !== 'social')
-      filteredData = filteredData.filter((inc) => inc.estado === "activo" && inc.fuente !== "social")
-    } else if (estado === "atendido") {
-      // Historial: estado = 'atendido' (confirmados on-chain) O (estado = 'activo' y proviene de redes/IA)
-      filteredData = filteredData.filter((inc) => inc.estado === "atendido" || (inc.estado === "activo" && inc.fuente === "social"))
-    }
-
-    return NextResponse.json(filteredData)
+    return NextResponse.json(data || [])
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

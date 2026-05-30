@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import dynamic from "next/dynamic"
 import { MapPin, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -16,7 +16,6 @@ import { toast } from "sonner"
 import type { Incident, IncidentSource, DbIncident } from "@/lib/types"
 import { useIncidents, useResources } from "./crisis-map/use-map-data"
 import { IncidentIcon, SourceIcon, severityColorClass, sourceLabel, incidentTypeLabel } from "./crisis-map/incident-helpers"
-import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./crisis-map/leaflet-icon"
 import { IncidentDetailModal, DeployModal } from "./crisis-map/map-modals"
 import { IncidentDispatchCard } from "./incident-dispatch-card"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -25,9 +24,13 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 // Lazy-load de componentes Leaflet (sólo cliente)
 // ---------------------------------------------------------------------------
 
-const MapContainer = dynamic(() => import("react-leaflet").then((m) => m.MapContainer), { ssr: false })
-const TileLayer    = dynamic(() => import("react-leaflet").then((m) => m.TileLayer),    { ssr: false })
-const Marker       = dynamic(() => import("react-leaflet").then((m) => m.Marker),       { ssr: false })
+// Single dynamic import of the complete map component — fixes the bug where
+// individual dynamic imports broke React reconciliation and prevented new
+// markers from appearing without a page reload.
+const MapInner = dynamic(
+  () => import("./crisis-map/map-inner").then((m) => m.MapInner),
+  { ssr: false }
+)
 
 const MAP_CENTER: [number, number] = [-26.8241, -65.2226]
 const SOURCE_TYPES: IncidentSource[] = ["social", "sensor", "camera"]
@@ -55,6 +58,9 @@ export function CrisisMap() {
   const [selectedCounts,     setSelectedCounts]     = useState<Record<string, number>>({})
   const [viewMode,           setViewMode]           = useState<"activo" | "atendido">("activo")
 
+  // Ref for respawn timers cleanup on unmount
+  const respawnTimersRef = useRef<Set<NodeJS.Timeout>>(new Set())
+
   // ── Data ──────────────────────────────────────────────────────────────────
   const { incidents: dbIncidents, mutate: mutateIncidents } = useIncidents(viewMode)
   const { data: dbRecursos, mutate: mutateRecursos }        = useResources()
@@ -78,13 +84,16 @@ export function CrisisMap() {
     const link = document.createElement("link")
     link.rel = "stylesheet"
     link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    link.onload = () => setLeafletCssLoaded(true)
+    link.onerror = () => console.error("[CrisisMap] Failed to load Leaflet CSS")
     document.head.appendChild(link)
-    setLeafletCssLoaded(true)
 
     restoreResourceTimersOnMount().catch((err) => console.error("[CrisisMap] Error restoring resource timers:", err))
 
     return () => {
-      document.head.removeChild(link)
+      if (link.parentNode) link.parentNode.removeChild(link)
+      respawnTimersRef.current.forEach((t) => clearTimeout(t))
+      respawnTimersRef.current.clear()
     }
   }, [])
 
@@ -173,14 +182,21 @@ export function CrisisMap() {
       await mutateRecursos()
     }
 
-    // Respawn 90s después
+    // Respawn 90s después — stored in ref for cleanup on unmount
     if (incidenteId) {
       const incidenteTipo  = selectedIncident?.type
       const incidenteFuente = selectedIncident?.source
-      setTimeout(async () => {
-        const respawn = buildRespawnIncident({ tipo: incidenteTipo, fuente: incidenteFuente })
-        await createIncidente(respawn).catch((err) => console.error("[CrisisMap] Error creating respawn incident:", err))
+      const timer = setTimeout(async () => {
+        try {
+          const respawn = buildRespawnIncident({ tipo: incidenteTipo, fuente: incidenteFuente })
+          await createIncidente(respawn)
+        } catch (err) {
+          console.error("[CrisisMap] Error creating respawn incident:", err)
+        } finally {
+          respawnTimersRef.current.delete(timer)
+        }
       }, 90_000)
+      respawnTimersRef.current.add(timer)
     }
   }
 
@@ -348,26 +364,10 @@ export function CrisisMap() {
       {/* ── Leaflet Map ─────────────────────────────────────────────── */}
       {isClient && leafletCssLoaded ? (
         <div className="h-[400px] w-full shrink-0 pt-10 md:h-full md:flex-1">
-          <style>{LEAFLET_DARK_STYLES}</style>
-          <style>{LEAFLET_DARK_STYLES}</style>
-          <MapContainer center={MAP_CENTER} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
-            <TileLayer
-              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            />
-            {filteredIncidents.map((incident) => {
-              const icon = createLeafletIcon(incident.severity, incident.type, incident.source)
-              if (!icon) return null
-              return (
-                <Marker
-                  key={incident.id}
-                  position={[incident.coordinates.lat, incident.coordinates.lng]}
-                  icon={icon}
-                  eventHandlers={{ click: () => setSelectedIncident(incident) }}
-                />
-              )
-            })}
-          </MapContainer>
+          <MapInner
+            incidents={filteredIncidents}
+            onMarkerClick={(incident) => setSelectedIncident(incident)}
+          />
         </div>
       ) : (
         <div className="flex h-[400px] w-full shrink-0 items-center justify-center bg-secondary/20 md:h-full md:flex-1">

@@ -20,6 +20,7 @@ const PERSISTENCE_KEY = "crisis-dashboard-resource-timers"
 const activeTimers = new Map<string, ResourceTimers>()
 
 function loadPersistedStates(): PersistedResourceState[] {
+  if (typeof window === "undefined") return []
   try {
     const raw = localStorage.getItem(PERSISTENCE_KEY)
     if (!raw) return []
@@ -32,6 +33,7 @@ function loadPersistedStates(): PersistedResourceState[] {
 }
 
 function savePersistedStates(states: PersistedResourceState[]) {
+  if (typeof window === "undefined") return
   try {
     localStorage.setItem(PERSISTENCE_KEY, JSON.stringify(states))
   } catch {
@@ -64,6 +66,13 @@ export async function dispatchResourceWithLifecycle(
     recursoId = disponible.id
   }
 
+  // Cleanup existing timers for this resource to prevent StrictMode / HMR duplicates
+  const existingTimers = activeTimers.get(recursoId)
+  if (existingTimers) {
+    clearTimeout(existingTimers.busyTimer)
+    if (existingTimers.availableTimer) clearTimeout(existingTimers.availableTimer)
+  }
+
   await patchRecurso(recursoId, {
     estado: "dispatched",
     incidente_id: incidenteId ?? null,
@@ -78,26 +87,40 @@ export async function dispatchResourceWithLifecycle(
   })
 
   const busyTimer = setTimeout(async () => {
-    await patchRecurso(recursoId!, { estado: "busy" })
-    onStateChange?.()
-
-    addPersistedState({
-      resourceId: recursoId!,
-      estado: "busy",
-      timestamp: Date.now(),
-      incidenteId: incidenteId ?? null,
-    })
-
-    const availableTimer = setTimeout(async () => {
-      await patchRecurso(recursoId!, { estado: "available", incidente_id: null })
+    try {
+      await patchRecurso(recursoId!, { estado: "busy" })
       onStateChange?.()
+
+      addPersistedState({
+        resourceId: recursoId!,
+        estado: "busy",
+        timestamp: Date.now(),
+        incidenteId: incidenteId ?? null,
+      })
+
+      const availableTimer = setTimeout(async () => {
+        try {
+          await patchRecurso(recursoId!, { estado: "available", incidente_id: null })
+          onStateChange?.()
+          activeTimers.delete(recursoId!)
+          removePersistedState(recursoId!)
+        } catch (err) {
+          console.error(`[resource-lifecycle] Error releasing resource ${recursoId}:`, err)
+          activeTimers.delete(recursoId!)
+          removePersistedState(recursoId!)
+        }
+      }, RESOURCE_BUSY_TO_AVAILABLE_MS)
+
+      const existing = activeTimers.get(recursoId!)
+      if (existing) {
+        existing.availableTimer = availableTimer
+      }
+    } catch (err) {
+      console.error(`[resource-lifecycle] Error transitioning resource ${recursoId} to busy:`, err)
+      // Attempt recovery — return to available
+      try { await patchRecurso(recursoId!, { estado: "available", incidente_id: null }) } catch {}
       activeTimers.delete(recursoId!)
       removePersistedState(recursoId!)
-    }, RESOURCE_BUSY_TO_AVAILABLE_MS)
-
-    const existing = activeTimers.get(recursoId!)
-    if (existing) {
-      existing.availableTimer = availableTimer
     }
   }, RESOURCE_DISPATCHED_TO_BUSY_MS)
 
@@ -118,14 +141,22 @@ export async function dispatchResourceWithLifecycle(
 
 export async function restoreResourceTimersOnMount() {
   const persisted = loadPersistedStates()
+  if (persisted.length === 0) return
   const now = Date.now()
+
+  // Fetch resources once instead of N times
+  let allRecursos: Awaited<ReturnType<typeof fetchRecursos>>
+  try {
+    allRecursos = await fetchRecursos()
+  } catch {
+    return
+  }
 
   for (const state of persisted) {
     if (activeTimers.has(state.resourceId)) continue
 
     try {
-      const recursos = await fetchRecursos()
-      const currentResource = recursos.find((r) => r.id === state.resourceId)
+      const currentResource = allRecursos.find((r) => r.id === state.resourceId)
 
       if (!currentResource) {
         removePersistedState(state.resourceId)

@@ -32,7 +32,7 @@ export interface IncidentSourceDetails {
   arkiv_entity_key?: string
   ai_analysis?: {
     reasoning?: string
-    suggestedActions?: string
+    suggestedActions?: string[]
     confidence?: number
     relatedPostIds?: string[]
     arkiv_entity_key?: string
