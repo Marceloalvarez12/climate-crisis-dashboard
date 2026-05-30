@@ -200,56 +200,12 @@ export class SocialMediaAgent {
       return
     }
 
-    // ── ARKIV ON-CHAIN AI REPORT REGISTRATION ──
-    let onChainKey: string | undefined = undefined
-
-    if (process.env.ARKIV_PRIVATE_KEY && process.env.ARKIV_PRIVATE_KEY !== "0xREEMPLAZAR_CON_TU_PRIVATE_KEY_AQUI") {
-      try {
-        console.log(`[Agent] Registering Gemini analysis for "${analysis.locationName}" on Arkiv Braga testnet...`)
-        const account = privateKeyToAccount(process.env.ARKIV_PRIVATE_KEY as `0x${string}`)
-        const walletClient = createWalletClient({
-          chain: braga,
-          transport: http(),
-          account,
-        })
-
-        const onChainPayload = {
-          agent: "Gemini 2.0 Flash",
-          task: "Real-time Climate Crisis Monitoring",
-          location: analysis.locationName,
-          type: TYPE_MAP[analysis.type] ?? "general",
-          severity: SEVERITY_MAP[analysis.severity] ?? "medium",
-          summary: analysis.summary,
-          reasoning: analysis.reasoning,
-          suggestedActions: analysis.suggestedActions,
-          confidence: analysis.confidence,
-          scannedAt: new Date().toISOString(),
-        }
-
-        const { entityKey } = await walletClient.createEntity({
-          payload: jsonToPayload(onChainPayload),
-          contentType: "application/json",
-          attributes: [
-            { key: "project", value: "climate-crisis-dashboard" },
-            { key: "agent", value: "Gemini 2.0 Flash" },
-            { key: "tipo", value: TYPE_MAP[analysis.type] ?? "general" },
-            { key: "severidad", value: SEVERITY_MAP[analysis.severity] ?? "medium" },
-            { key: "ubicacion", value: analysis.locationName || "unknown" },
-            { key: "status", value: "detected" },
-            { key: "track", value: "arkiv" },
-          ],
-          expiresIn: 3600, // 1 hora (alerta de IA no confirmada decae rápido)
-        })
-
-        onChainKey = entityKey
-        console.log(`[Agent] Successfully registered on Braga blockchain with Entity Key: ${entityKey}`)
-      } catch (err) {
-        console.error(`[Agent] Blockchain registration failed, using local fallback. Error:`, err)
-      }
-    } else {
-      console.log(`[Agent] No ARKIV_PRIVATE_KEY found. Simulating on-chain audit...`)
-      onChainKey = `0x${randomUUID().replace(/-/g, "")}${randomUUID().replace(/-/g, "").slice(0, 32)}`
-    }
+    // ── PENDIENTES DE VALIDACIÓN (IA LOCAL ONLY) ──
+    // Los reportes generados automáticamente por el agente de IA se guardan de forma puramente local.
+    // Si pasa 1 hora sin que el operador los valide, son borrados automáticamente (Darwinian Decay).
+    // Si el operador los confirma y despacha recursos, recién en ese momento se registran en la Blockchain de Arkiv.
+    console.log(`[Agent] Alerta detectada para "${analysis.locationName}". Registrada como PENDIENTE (Local).`)
+    const onChainKey = `0xSimulatedDetection-${randomUUID().replace(/-/g, "")}`
 
     // Attach key to in-memory analysis so the frontend receives it
     analysis.arkivKey = onChainKey
