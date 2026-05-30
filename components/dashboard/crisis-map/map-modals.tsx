@@ -300,9 +300,9 @@ export function IncidentDetailModal({
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-5" onClick={onOpenDeploy}>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 cursor-pointer" onClick={onOpenDeploy}>
                     <Truck className="h-5 w-5 mr-2" />
-                    Despliegue de Recursos
+                    {incident.source === "social" ? "Confirmar Incidente" : "Despliegue de Recursos"}
                   </Button>
                 </div>
               )}

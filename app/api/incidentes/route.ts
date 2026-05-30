@@ -26,14 +26,22 @@ export async function GET(request: Request) {
     const { data, error } = await supabase
       .from("incidentes")
       .select("*")
-      .eq("estado", estado)
       .order("created_at", { ascending: false })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data || [])
+    let filteredData = data || []
+    if (estado === "activo") {
+      // Activos: estado = 'activo' y NO proviene de redes/IA (fuente !== 'social')
+      filteredData = filteredData.filter((inc) => inc.estado === "activo" && inc.fuente !== "social")
+    } else if (estado === "atendido") {
+      // Historial: estado = 'atendido' (confirmados on-chain) O (estado = 'activo' y proviene de redes/IA)
+      filteredData = filteredData.filter((inc) => inc.estado === "atendido" || (inc.estado === "activo" && inc.fuente === "social"))
+    }
+
+    return NextResponse.json(filteredData)
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
