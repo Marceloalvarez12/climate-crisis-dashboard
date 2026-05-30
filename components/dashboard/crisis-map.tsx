@@ -322,6 +322,11 @@ export function CrisisMap() {
                           ON-CHAIN
                         </Badge>
                       )}
+                      {viewMode === "activo" && (
+                        <Badge variant="outline" className="text-[7px] h-3 px-1 border-yellow-500/40 text-yellow-400 font-mono shrink-0 animate-pulse">
+                          PENDIENTE
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className="text-[9px] h-4 px-1">

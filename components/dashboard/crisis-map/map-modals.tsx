@@ -218,7 +218,12 @@ export function IncidentDetailModal({
                     </span>
                     {incident.estado === "atendido" && (
                       <Badge className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25 text-[9px] px-1.5 py-0 border border-emerald-500/30">
-                        Atendido
+                        Atendido & Auditado
+                      </Badge>
+                    )}
+                    {incident.estado === "activo" && (
+                      <Badge className="bg-yellow-500/15 text-yellow-400 hover:bg-yellow-500/20 text-[9px] px-1.5 py-0 border border-yellow-500/30 animate-pulse">
+                        Pendiente de Validación
                       </Badge>
                     )}
                   </div>

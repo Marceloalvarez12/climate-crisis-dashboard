@@ -7,6 +7,22 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const estado = searchParams.get("estado") || "activo"
 
+    // ── DARWINIAN DECAY DE REPORTES ACTIVOS ──
+    // Eliminación automática en Supabase de incidentes activos (sin despachar/confirmar) mayores a 1 hora (3600 segundos).
+    // Esto sincroniza la persistencia relacional con el vencimiento del lease on-chain de Braga Testnet.
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { error: cleanupError } = await supabase
+      .from("incidentes")
+      .delete()
+      .eq("estado", "activo")
+      .lt("created_at", oneHourAgo)
+
+    if (cleanupError) {
+      console.error("[Decay Cleanup] Fallo al expirar incidentes antiguos:", cleanupError.message)
+    } else {
+      console.log("[Decay Cleanup] Limpieza exitosa de alertas no confirmadas mayores a 1 hora")
+    }
+
     const { data, error } = await supabase
       .from("incidentes")
       .select("*")
