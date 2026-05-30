@@ -14,6 +14,14 @@ El sistema demuestra cómo la convergencia de **Inteligencia Artificial (Google 
 
 ---
 
+## 🔗 Evidencia de Integración Arkiv (Prueba de Transacción On-Chain)
+Para certificar que el sistema interactúa de manera real y exitosa con la blockchain **Braga Testnet de Arkiv Network**, aquí se presentan los hashes y enlaces del explorador generados durante las pruebas oficiales:
+*   **Dirección de la Billetera del Operador:** `0xb5443307029efA0a1F1BF44421CCCaF3249ac0e4`
+*   **Entity Key en Braga Testnet (Registro Inmutable):** `0x5d0d95f154889e650afe18c6c4a86d2ada55ca8a238061776a03f0878cec3558`
+*   **Enlace al Explorador de Braga (Blockscout):** [Ver Entidad Auditada en Arkiv Explorer](https://explorer.braga.hoodi.arkiv.network/entity/0x5d0d95f154889e650afe18c6c4a86d2ada55ca8a238061776a03f0878cec3558)
+
+---
+
 ## 🚀 Arquitectura Avanzada e Integración Blockchain Premium
 
 Para este desafío, hemos llevado la integración de **Arkiv Blockchain** a un nivel sumamente competitivo, inspirándonos en la arquitectura de proyectos ganadores previos como `ark-hive` (pensamientos on-chain enlazados) y `Cortex` (ciclo de vida de memoria evolutiva).
