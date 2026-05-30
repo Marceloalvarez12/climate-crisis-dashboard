@@ -6,7 +6,7 @@ import { fetcher } from "@/lib/api"
 import type { Incident, DbIncident } from "@/lib/types"
 
 const SWR_CONFIG = {
-  refreshInterval: 0,
+  refreshInterval: 3000,
   revalidateOnFocus: false,
   revalidateOnReconnect: true,
   dedupingInterval: 2000,
@@ -34,7 +34,7 @@ export function dbToIncident(inc: DbIncident): Incident {
 export function useIncidents(estado: "activo" | "atendido" = "activo") {
   const { data, error, mutate } = useSWR<DbIncident[]>(`/api/incidentes?estado=${estado}`, fetcher, {
     ...SWR_CONFIG,
-    refreshInterval: 0,
+    refreshInterval: 3000,
   })
 
   const incidents: Incident[] = useMemo(() => {
