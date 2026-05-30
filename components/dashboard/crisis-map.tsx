@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { MapPin, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { mutate } from "swr"
 import { dispatchResourceWithLifecycle, restoreResourceTimersOnMount } from "@/hooks/use-resource-lifecycle"
 import { buildRespawnIncident } from "@/lib/mock-data"
 import { patchIncidente, createIncidente } from "@/lib/api"
@@ -159,7 +160,11 @@ export function CrisisMap() {
     if (incidenteId) {
       // Patch incident to attended state
       await patchIncidente(incidenteId, { estado: "atendido" }).catch((err) => console.error("[CrisisMap] Error updating incident:", err))
-      mutateIncidents()
+      
+      // Force global revalidation of both lists and analytics
+      mutate("/api/incidentes?estado=activo")
+      mutate("/api/incidentes?estado=atendido")
+      mutate("/api/analytics")
 
       // Despachar recursos con ciclo de vida
       await Promise.all(
@@ -416,7 +421,9 @@ export function CrisisMap() {
               selectedCounts={selectedCounts}
               onConfirmDispatch={handleDeployResources}
               onDispatchSuccess={() => {
-                mutateIncidents()
+                mutate("/api/incidentes?estado=activo")
+                mutate("/api/incidentes?estado=atendido")
+                mutate("/api/analytics")
               }}
               onDismiss={handleCloseConfirmDispatch}
             />
