@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server"
-import { ResourcePatchSchema } from "@/lib/validation"
+import { NextRequest } from "next/server"
 import { supabase } from "@/lib/supabase"
+import { ResourcePatchSchema } from "@/lib/validation"
+import { apiSuccess, apiError, apiValidationError } from "@/lib/services/api-response"
+import type { DbResource } from "@/lib/types"
 
 export async function GET() {
   try {
@@ -9,51 +11,38 @@ export async function GET() {
       .select("*")
       .order("nombre", { ascending: true })
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json(data || [])
+    if (error) return apiError(error.message)
+    return apiSuccess(data || [])
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return apiError(String(err))
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
 
     const parsed = ResourcePatchSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid data", details: parsed.error.flatten() },
-        { status: 400 }
-      )
+      return apiValidationError(parsed.error.flatten())
     }
 
     const { id, estado, incidente_id } = parsed.data
 
-    const updatePayload: Record<string, unknown> = {}
+    const updatePayload: Partial<DbResource> = { updated_at: new Date().toISOString() }
     if (estado !== undefined) updatePayload.estado = estado
     if (incidente_id !== undefined) updatePayload.incidente_id = incidente_id
 
     const { data, error } = await supabase
       .from("recursos")
-      .update({
-        ...updatePayload,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", id)
       .select()
       .single()
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json(data)
+    if (error) return apiError(error.message)
+    return apiSuccess(data)
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return apiError(String(err))
   }
 }
-

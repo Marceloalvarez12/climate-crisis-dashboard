@@ -265,7 +265,7 @@ export async function generateIncidentPdf(
       try {
         const qr = await QRCode.toDataURL(`${origin}/auditoria?key=${aiKey}`, { width: 150, margin: 1 })
         doc.addImage(qr, "PNG", bx + 0.08, y + 0.08, 0.65, 0.65)
-      } catch {}
+      } catch { /* QR generation failed, continue without QR */ }
       
       let tx = bx + 0.8
       doc.setFontSize(7.5)
@@ -304,7 +304,7 @@ export async function generateIncidentPdf(
       try {
         const qr = await QRCode.toDataURL(`${origin}/auditoria?key=${dispatchKey}`, { width: 150, margin: 1 })
         doc.addImage(qr, "PNG", bx + 0.08, y + 0.08, 0.65, 0.65)
-      } catch {}
+      } catch { /* QR generation failed, continue without QR */ }
       
       tx = bx + 0.8
       doc.setFontSize(7.5)
@@ -332,8 +332,6 @@ export async function generateIncidentPdf(
       doc.setFont("helvetica", "normal")
       doc.setTextColor(...C.slate500)
       doc.text("Escaneá el QR para auditar público", tx, y + 0.95)
-
-      y += boxH + 0.25
     } else {
       // Draw single box
       const singleKey = hasAiSeal ? aiKey! : dispatchKey!
@@ -350,7 +348,7 @@ export async function generateIncidentPdf(
       try {
         const qr = await QRCode.toDataURL(`${origin}/auditoria?key=${singleKey}`, { width: 150, margin: 1 })
         doc.addImage(qr, "PNG", M + 0.12, y + 0.12, 0.75, 0.75)
-      } catch {}
+      } catch { /* QR generation failed, continue without QR */ }
       
       const tx = M + 1.05
       doc.setFontSize(8.5)
@@ -379,8 +377,6 @@ export async function generateIncidentPdf(
       doc.setFont("helvetica", "normal")
       doc.setTextColor(...C.slate500)
       doc.text("Escaneá el código QR a la izquierda para auditar este reporte en el Portal de Auditoría Ciudadana.", tx, y + 1.02)
-
-      y += boxH + 0.25
     }
   }
 

@@ -1,245 +1,209 @@
-import { NextResponse } from 'next/server'
-import { createPublicClient, http } from '@arkiv-network/sdk'
-import { braga } from '@arkiv-network/sdk/chains'
-import { supabase } from '@/lib/supabase'
+import { NextRequest } from "next/server"
+import { ArkivService, type ArkivEntity } from "@/lib/services/arkiv-service"
+import { apiSuccess, apiError, apiNotFound } from "@/lib/services/api-response"
+import { supabase } from "@/lib/supabase"
+import type { DbIncident } from "@/lib/types"
+
+type RelationType = "detection_to_dispatch" | "dispatch_to_detection" | null
+
+interface VerifyResponse {
+  success: boolean
+  key: string
+  creator: string
+  expiresAtBlock: string | null
+  payload: Record<string, unknown>
+  linkedEntity: LinkedEntityData | null
+  relation: RelationType
+  isSimulated: boolean
+}
+
+interface LinkedEntityData {
+  key: string
+  creator: string
+  expiresAtBlock: string | null
+  payload: Record<string, unknown>
+}
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ key: string }> }
 ): Promise<Response> {
   try {
-    const resolvedParams = await params
-    const key = resolvedParams.key
+    const { key } = await params
 
-    if (!key || !key.startsWith('0x')) {
-      return NextResponse.json({ success: false, error: 'Llave de entidad inválida' }, { status: 400 })
-    }
+    const validationError = validateKey(key)
+    if (validationError) return validationError
 
-    if (key.length !== 66) {
-      if (key.length === 42) {
-        return NextResponse.json({
-          success: false,
-          error: 'Has ingresado una dirección de billetera (42 caracteres). Debes ingresar una llave de entidad (Entity Key) válida de 32 bytes (66 caracteres empezando con "0x").'
-        }, { status: 400 })
-      }
-      return NextResponse.json({
-        success: false,
-        error: `Longitud de llave inválida: ${key.length} caracteres. Debe ser una llave de entidad de 66 caracteres (32 bytes empezando con "0x").`
-      }, { status: 400 })
-    }
-
-    const client = createPublicClient({
-      chain: braga,
-      transport: http(),
-    })
-
-    let entity = null
-    try {
-      // Obtener la entidad desde la red de Arkiv (Braga Testnet)
-      entity = await client.getEntity(key as `0x${string}`)
-    } catch (e) {
-      console.warn('[Arkiv Verify] Key not found on-chain, trying database fallback if key is simulated:', e)
-    }
+    const entity = await ArkivService.getEntity(key)
 
     if (entity) {
-      const payload = entity.toJson()
-      let linkedEntityData = null
-      let relationType: 'detection_to_dispatch' | 'dispatch_to_detection' | null = null
-      let linkedKey = ""
-
-      try {
-        // Caso A: La llave consultada es un Despacho y tiene enlazada la Detección original
-        if (payload && payload.action === 'dispatch' && payload.detectionKey) {
-          linkedKey = payload.detectionKey
-          relationType = 'dispatch_to_detection'
-        } 
-        // Caso B: La llave consultada es una Detección. Buscamos en Supabase si fue atendido y tiene despacho.
-        else {
-          const { data: dbIncident } = await supabase
-            .from('incidentes')
-            .select('*')
-            .or(`fuente_detalles->>detection_arkiv_key.eq.${key},fuente_detalles->ai_analysis->>arkiv_entity_key.eq.${key}`)
-            .maybeSingle()
-
-          if (dbIncident && dbIncident.fuente_detalles?.arkiv_entity_key && dbIncident.fuente_detalles?.arkiv_entity_key !== key) {
-            linkedKey = dbIncident.fuente_detalles.arkiv_entity_key as string
-            relationType = 'detection_to_dispatch'
-          }
-        }
-
-        // Si encontramos una clave vinculada, la consultamos en la blockchain con fallback a base de datos
-        if (linkedKey && linkedKey.startsWith('0x') && linkedKey.length === 66) {
-          let fetchedLinked = false
-
-          if (!linkedKey.includes('Simulated') && !linkedKey.includes('0xSimulated')) {
-            try {
-              const linkedEntity = await client.getEntity(linkedKey as `0x${string}`)
-              if (linkedEntity) {
-                linkedEntityData = {
-                  key: linkedKey,
-                  creator: linkedEntity.creator,
-                  expiresAtBlock: linkedEntity.expiresAtBlock?.toString() || null,
-                  payload: linkedEntity.toJson(),
-                }
-                fetchedLinked = true
-              }
-            } catch (linkErr) {
-              console.warn('[Arkiv Verify] Linked key not found on-chain, trying database fallback:', linkErr)
-            }
-          }
-
-          if (!fetchedLinked) {
-            // Fallback a base de datos local para la entidad vinculada (por si es simulada)
-            const { data: dbIncident } = await supabase
-              .from('incidentes')
-              .select('*')
-              .or(`fuente_detalles->>arkiv_entity_key.eq.${linkedKey},fuente_detalles->ai_analysis->>arkiv_entity_key.eq.${linkedKey},fuente_detalles->>detection_arkiv_key.eq.${linkedKey}`)
-              .maybeSingle()
-
-            if (dbIncident) {
-              const isLinkedDetection = relationType === 'dispatch_to_detection'
-              const simulatedDetectionPayload = {
-                agent: "Gemini 2.0 Flash (Simulado)",
-                task: "Real-time Climate Crisis Monitoring",
-                location: dbIncident.ubicacion,
-                type: dbIncident.tipo,
-                severity: dbIncident.severidad,
-                summary: dbIncident.fuente_detalles?.content || "Detección automática de la IA",
-                confidence: (dbIncident.fuente_detalles?.ai_analysis as any)?.confidence || 90,
-                scannedAt: dbIncident.created_at,
-                simulated: true
-              }
-              
-              const simulatedDispatchPayload = {
-                action: 'dispatch',
-                incidentId: dbIncident.id,
-                detectionKey: linkedKey,
-                tipo: dbIncident.tipo,
-                severidad: dbIncident.severidad,
-                ubicacion: dbIncident.ubicacion,
-                afectados: dbIncident.personas_afectadas,
-                operator: '0xSimulatedOperatorAccount0000000000000000',
-                dispatchedAt: dbIncident.fuente_detalles?.dispatched_at || dbIncident.updated_at,
-                simulated: true
-              }
-
-              linkedEntityData = {
-                key: linkedKey,
-                creator: isLinkedDetection ? '0xSimulatedAIAgent0000000000000000000000' : '0xSimulatedOperatorAccount0000000000000000',
-                expiresAtBlock: '999999 (Simulación)',
-                payload: isLinkedDetection ? simulatedDetectionPayload : simulatedDispatchPayload
-              }
-            }
-          }
-        }
-      } catch (linkError) {
-        console.warn('[Arkiv Verify] Error al resolver entidad vinculada:', linkError)
-      }
-
-      return NextResponse.json({
-        success: true,
-        key,
-        creator: entity.creator,
-        expiresAtBlock: entity.expiresAtBlock?.toString() || null,
-        payload,
-        linkedEntity: linkedEntityData,
-        relation: relationType,
-        isSimulated: false
-      })
+      return apiSuccess(await resolveOnChainEntity(entity, key))
     }
 
-    // Intentar recuperar del simulador local (Supabase)
-    const { data: incident, error: findError } = await supabase
-      .from('incidentes')
-      .select('*')
-      .or(`fuente_detalles->>arkiv_entity_key.eq.${key},fuente_detalles->ai_analysis->>arkiv_entity_key.eq.${key},fuente_detalles->>detection_arkiv_key.eq.${key}`)
-      .maybeSingle()
-
-    if (incident) {
-      const detectionKey = (incident.fuente_detalles?.ai_analysis as any)?.arkiv_entity_key || incident.fuente_detalles?.detection_arkiv_key || `0xSimulatedDetectionKey-${incident.id}`
-      const dispatchKey = incident.fuente_detalles?.arkiv_entity_key || `0xSimulatedDispatchKey-${incident.id}`
-      
-      const isQueryingDetection = key === detectionKey || (incident.fuente_detalles?.ai_analysis as any)?.arkiv_entity_key === key
-      
-      const simulatedDetectionPayload = {
-        agent: "Gemini 2.0 Flash (Simulado)",
-        task: "Real-time Climate Crisis Monitoring",
-        location: incident.ubicacion,
-        type: incident.tipo,
-        severity: incident.severidad,
-        summary: incident.fuente_detalles?.content || "Detección automática de la IA",
-        confidence: (incident.fuente_detalles?.ai_analysis as any)?.confidence || 90,
-        scannedAt: incident.created_at,
-        simulated: true
-      }
-
-      const simulatedDispatchPayload = {
-        action: 'dispatch',
-        incidentId: incident.id,
-        detectionKey: detectionKey,
-        tipo: incident.tipo,
-        severidad: incident.severidad,
-        ubicacion: incident.ubicacion,
-        afectados: incident.personas_afectadas,
-        operator: '0xSimulatedOperatorAccount0000000000000000',
-        dispatchedAt: incident.fuente_detalles?.dispatched_at || incident.updated_at,
-        simulated: true
-      }
-
-      const activePayload = isQueryingDetection ? simulatedDetectionPayload : simulatedDispatchPayload
-      let linkedEntityData = null
-      let relationType: 'detection_to_dispatch' | 'dispatch_to_detection' | null = null
-
-      if (incident.estado === 'atendido') {
-        relationType = isQueryingDetection ? 'detection_to_dispatch' : 'dispatch_to_detection'
-        
-        // Determinar si la entidad enlazada se puede obtener de la blockchain
-        const linkedKey = isQueryingDetection ? dispatchKey : detectionKey
-        let fetchedLinked = false
-
-        if (linkedKey && linkedKey.startsWith('0x') && linkedKey.length === 66 && !linkedKey.includes('Simulated') && !linkedKey.includes('0xSimulated')) {
-          try {
-            const linkedEntity = await client.getEntity(linkedKey as `0x${string}`)
-            if (linkedEntity) {
-              linkedEntityData = {
-                key: linkedKey,
-                creator: linkedEntity.creator,
-                expiresAtBlock: linkedEntity.expiresAtBlock?.toString() || null,
-                payload: linkedEntity.toJson(),
-              }
-              fetchedLinked = true
-            }
-          } catch (linkErr) {
-            console.warn('[Arkiv Verify] Error fetching linked entity in fallback:', linkErr)
-          }
-        }
-
-        if (!fetchedLinked) {
-          linkedEntityData = {
-            key: linkedKey,
-            creator: isQueryingDetection ? '0xSimulatedOperatorAccount0000000000000000' : '0xSimulatedAIAgent0000000000000000000000',
-            expiresAtBlock: '999999 (Simulación)',
-            payload: isQueryingDetection ? simulatedDispatchPayload : simulatedDetectionPayload
-          }
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        key,
-        creator: isQueryingDetection ? '0xSimulatedAIAgent0000000000000000000000' : '0xSimulatedOperatorAccount0000000000000000',
-        expiresAtBlock: '999999 (Simulación)',
-        payload: activePayload,
-        linkedEntity: linkedEntityData,
-        relation: relationType,
-        isSimulated: true
-      })
+    const dbIncident = await findIncidentByKey(key)
+    if (dbIncident) {
+      return apiSuccess(buildSimulatedResponse(dbIncident, key))
     }
 
-    return NextResponse.json({ success: false, error: 'Entidad no encontrada en la blockchain ni en la base de datos local' }, { status: 404 })
+    return apiNotFound("Entity not found on-chain or in local database")
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al verificar on-chain'
-    console.error('[Arkiv Verify] Error:', errorMessage)
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Unknown error"
+    console.error("[Arkiv Verify] Error:", message)
+    return apiError(message)
+  }
+}
+
+function validateKey(key: string): Response | null {
+  if (!key || !key.startsWith("0x")) {
+    return apiError("Invalid entity key", 400)
+  }
+  if (key.length === 42) {
+    return apiError("Wallet address provided (42 chars). Entity key required (66 chars).", 400)
+  }
+  if (key.length !== 66) {
+    return apiError(`Invalid key length: ${key.length}. Must be 66 characters.`, 400)
+  }
+  return null
+}
+
+async function resolveOnChainEntity(entity: ArkivEntity, key: string): Promise<VerifyResponse> {
+  const payload = entity.payload
+  let linkedEntity: LinkedEntityData | null = null
+  let relation: RelationType = null
+
+  if (payload.action === "dispatch" && payload.detectionKey) {
+    relation = "dispatch_to_detection"
+    linkedEntity = await resolveLinkedEntity(payload.detectionKey as string, true)
+  } else {
+    const dbIncident = await findIncidentByKey(key)
+    if (dbIncident?.fuente_detalles?.arkiv_entity_key && dbIncident.fuente_detalles.arkiv_entity_key !== key) {
+      relation = "detection_to_dispatch"
+      linkedEntity = await resolveLinkedEntity(dbIncident.fuente_detalles.arkiv_entity_key as string, false)
+    }
+  }
+
+  return {
+    success: true,
+    key,
+    creator: entity.creator,
+    expiresAtBlock: entity.expiresAtBlock,
+    payload,
+    linkedEntity,
+    relation,
+    isSimulated: false,
+  }
+}
+
+async function resolveLinkedEntity(linkedKey: string, isLinkedDetection: boolean): Promise<LinkedEntityData | null> {
+  if (!ArkivService.isValidEntityKey(linkedKey)) return null
+
+  const entity = await ArkivService.getEntity(linkedKey)
+  if (entity) {
+    return {
+      key: linkedKey,
+      creator: entity.creator,
+      expiresAtBlock: entity.expiresAtBlock,
+      payload: entity.payload,
+    }
+  }
+
+  const dbIncident = await findIncidentByKey(linkedKey)
+  if (!dbIncident) return null
+
+  return {
+    key: linkedKey,
+    creator: isLinkedDetection
+      ? "0xSimulatedAIAgent0000000000000000000000"
+      : "0xSimulatedOperatorAccount0000000000000000",
+    expiresAtBlock: "999999 (Simulación)",
+    payload: isLinkedDetection
+      ? buildSimulatedDetectionPayload(dbIncident)
+      : buildSimulatedDispatchPayload(dbIncident, linkedKey),
+  }
+}
+
+async function findIncidentByKey(key: string): Promise<DbIncident | null> {
+  const { data } = await supabase
+    .from("incidentes")
+    .select("*")
+    .or(`fuente_detalles->>arkiv_entity_key.eq.${key},fuente_detalles->ai_analysis->>arkiv_entity_key.eq.${key},fuente_detalles->>detection_arkiv_key.eq.${key}`)
+    .maybeSingle()
+
+  return data
+}
+
+function buildSimulatedResponse(incident: DbIncident, key: string): VerifyResponse {
+  const detectionKey = (incident.fuente_detalles?.ai_analysis as Record<string, unknown>)?.arkiv_entity_key as string
+    || incident.fuente_detalles?.detection_arkiv_key as string
+    || `0xSimulatedDetectionKey-${incident.id}`
+
+  const dispatchKey = incident.fuente_detalles?.arkiv_entity_key as string
+    || `0xSimulatedDispatchKey-${incident.id}`
+
+  const isQueryingDetection = key === detectionKey ||
+    (incident.fuente_detalles?.ai_analysis as Record<string, unknown>)?.arkiv_entity_key === key
+
+  let linkedEntity: LinkedEntityData | null = null
+  let relation: RelationType = null
+
+  if (incident.estado === "atendido") {
+    relation = isQueryingDetection ? "detection_to_dispatch" : "dispatch_to_detection"
+    const linkedKey = isQueryingDetection ? dispatchKey : detectionKey
+
+    linkedEntity = {
+      key: linkedKey,
+      creator: isQueryingDetection
+        ? "0xSimulatedOperatorAccount0000000000000000"
+        : "0xSimulatedAIAgent0000000000000000000000",
+      expiresAtBlock: "999999 (Simulación)",
+      payload: isQueryingDetection
+        ? buildSimulatedDispatchPayload(incident, detectionKey)
+        : buildSimulatedDetectionPayload(incident),
+    }
+  }
+
+  return {
+    success: true,
+    key,
+    creator: isQueryingDetection
+      ? "0xSimulatedAIAgent0000000000000000000000"
+      : "0xSimulatedOperatorAccount0000000000000000",
+    expiresAtBlock: "999999 (Simulación)",
+    payload: isQueryingDetection
+      ? buildSimulatedDetectionPayload(incident)
+      : buildSimulatedDispatchPayload(incident, detectionKey),
+    linkedEntity,
+    relation,
+    isSimulated: true,
+  }
+}
+
+function buildSimulatedDetectionPayload(incident: DbIncident): Record<string, unknown> {
+  const aiAnalysis = incident.fuente_detalles?.ai_analysis as Record<string, unknown> | undefined
+  return {
+    agent: "Gemini 2.0 Flash (Simulado)",
+    task: "Real-time Climate Crisis Monitoring",
+    location: incident.ubicacion,
+    type: incident.tipo,
+    severity: incident.severidad,
+    summary: incident.fuente_detalles?.content || "Detección automática de la IA",
+    confidence: aiAnalysis?.confidence || 90,
+    scannedAt: incident.created_at,
+    simulated: true,
+  }
+}
+
+function buildSimulatedDispatchPayload(incident: DbIncident, detectionKey: string): Record<string, unknown> {
+  return {
+    action: "dispatch",
+    incidentId: incident.id,
+    detectionKey,
+    tipo: incident.tipo,
+    severidad: incident.severidad,
+    ubicacion: incident.ubicacion,
+    afectados: incident.personas_afectadas,
+    operator: "0xSimulatedOperatorAccount0000000000000000",
+    dispatchedAt: incident.fuente_detalles?.dispatched_at || incident.updated_at,
+    simulated: true,
   }
 }

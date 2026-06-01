@@ -1,18 +1,5 @@
-/**
- * app/api/agent/route.ts
- *
- * Endpoint for executing the social media monitoring agent.
- *
- * GET  /api/agent  → Agent status and available connectors
- * POST /api/agent  → Runs a complete scan and returns the result
- */
-
-import { NextResponse } from "next/server"
 import { SocialMediaAgent } from "@/lib/agents/social-media-agent"
-
-// ---------------------------------------------------------------------------
-// GET — agent status
-// ---------------------------------------------------------------------------
+import { apiSuccess, apiError } from "@/lib/services/api-response"
 
 export async function GET() {
   try {
@@ -20,7 +7,7 @@ export async function GET() {
     const connectors = agent.getConnectorStatus()
     const activeCount = connectors.filter(c => c.isConfigured).length
 
-    return NextResponse.json({
+    return apiSuccess({
       status:          "online",
       model:           "gemini-2.0-flash",
       connectors:      connectors.map(c => ({
@@ -33,16 +20,10 @@ export async function GET() {
       timestamp:       new Date().toISOString(),
     })
   } catch (err) {
-    return NextResponse.json(
-      { status: "error", error: String(err) },
-      { status: 500 }
-    )
+    const message = err instanceof Error ? err.message : String(err)
+    return apiError(message)
   }
 }
-
-// ---------------------------------------------------------------------------
-// POST — execute scan
-// ---------------------------------------------------------------------------
 
 export async function POST() {
   try {
@@ -55,13 +36,10 @@ export async function POST() {
       `${result.incidentsFound.length} incidents detected`
     )
 
-    return NextResponse.json(result)
+    return apiSuccess(result)
   } catch (err) {
     console.error("[API/agent] Error in live scan:", err)
-    return NextResponse.json(
-      { error: String(err) },
-      { status: 500 }
-    )
+    const message = err instanceof Error ? err.message : String(err)
+    return apiError(message)
   }
 }
-

@@ -3,7 +3,7 @@ import type { DbIncident, DbResource, IncidentType, IncidentSeverity, IncidentSo
 // In-memory stores
 let incidents: DbIncident[] = []
 let resources: DbResource[] = []
-let auditLogs: Array<{ id: string; action: string; timestamp: string; details: unknown }> = []
+const auditLogs: Array<{ id: string; action: string; timestamp: string; details: unknown }> = []
 
 // Seed data
 function seedData() {

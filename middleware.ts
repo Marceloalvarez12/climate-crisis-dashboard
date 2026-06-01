@@ -11,7 +11,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/api/")) {
-    const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+    const forwardedFor = request.headers.get("x-forwarded-for") || ""
+    const realIp = request.headers.get("x-real-ip") || ""
+    const ip = forwardedFor.split(",")[0]?.trim() || realIp || "unknown"
     const rateLimit = checkRateLimit(ip)
 
     if (!rateLimit.allowed) {

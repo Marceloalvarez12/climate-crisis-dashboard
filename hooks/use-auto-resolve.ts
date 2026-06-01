@@ -57,8 +57,8 @@ export function useAutoResolve({
           onResolvedRef.current?.(data.locations ?? [])
         }
       }
-    } catch {
-      // Non-blocking — nunca crashear la UI por fallo de red
+    } catch (err) {
+      console.warn("[useAutoResolve] Failed to auto-resolve incidents:", err)
     }
 
     // ── 2. Auto-reset recursos atascados ────────────────────────────────────
@@ -76,8 +76,8 @@ export function useAutoResolve({
           console.log(`[useAutoResolve] ${data.reset} recursos liberados:`, nombres)
         }
       }
-    } catch {
-      // Non-blocking
+    } catch (err) {
+      console.warn("[useAutoResolve] Failed to auto-reset resources:", err)
     }
   }, [mutate])
 

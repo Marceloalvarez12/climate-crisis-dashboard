@@ -118,7 +118,7 @@ export async function dispatchResourceWithLifecycle(
     } catch (err) {
       console.error(`[resource-lifecycle] Error transitioning resource ${recursoId} to busy:`, err)
       // Attempt recovery — return to available
-      try { await patchRecurso(recursoId!, { estado: "available", incidente_id: null }) } catch {}
+      try { await patchRecurso(recursoId!, { estado: "available", incidente_id: null }) } catch { /* recovery failed */ }
       activeTimers.delete(recursoId!)
       removePersistedState(recursoId!)
     }

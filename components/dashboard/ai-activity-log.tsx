@@ -224,7 +224,8 @@ export function AIActivityLog() {
     return () => {
       clearTimeout(firstTimer)
       clearInterval(interval)
-      if (respawnTimerRef.current) clearTimeout(respawnTimerRef.current)
+      respawnTimersRef.current.forEach(timer => clearTimeout(timer))
+      respawnTimersRef.current.clear()
     }
   }, [runGeminiScan])
 
@@ -239,7 +240,11 @@ export function AIActivityLog() {
   const toggleReasoning = (id: string) => {
     setExpandedReasoning((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
       return next
     })
   }

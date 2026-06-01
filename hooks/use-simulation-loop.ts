@@ -95,7 +95,8 @@ export function useSimulationLoop() {
       mutate("/api/incidentes?estado=atendido")
       addEvent({ type: "incident_created", message: `Nuevo incidente en ${data.ubicacion}`, incidentId: data.id })
       return data
-    } catch {
+    } catch (err) {
+      console.error("[use-simulation-loop] Failed to spawn incident:", err)
       return null
     }
   }, [mutate, addEvent])
@@ -199,7 +200,7 @@ export function useSimulationLoop() {
           dispatchTimersRef.current.delete(available.id)
         } catch (err) {
           console.error("[use-simulation-loop] Dispatch lifecycle error, recovering resource:", err)
-          try { await patchRecurso(available.id, { estado: "available", incidente_id: null }) } catch {}
+          try { await patchRecurso(available.id, { estado: "available", incidente_id: null }) } catch { /* recovery failed */ }
           setActiveDispatches((prev) => prev.filter((d) => d.resourceId !== available.id))
           dispatchTimersRef.current.delete(available.id)
         }

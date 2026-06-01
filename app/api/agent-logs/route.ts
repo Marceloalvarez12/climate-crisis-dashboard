@@ -1,13 +1,14 @@
-import { NextResponse } from "next/server"
 import { getAgentLogs } from "@/lib/mock-db"
 import { AgentLogSchema } from "@/lib/validation"
+import { apiSuccess, apiError, apiValidationError } from "@/lib/services/api-response"
 
 export async function GET() {
   try {
     const data = getAgentLogs()
-    return NextResponse.json(data)
+    return apiSuccess(data)
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    return apiError(message)
   }
 }
 
@@ -17,19 +18,16 @@ export async function POST(request: Request) {
 
     const parsed = AgentLogSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid data", details: parsed.error.flatten() },
-        { status: 400 }
-      )
+      return apiValidationError(parsed.error.flatten())
     }
 
-    // Mock insert - just return success
-    return NextResponse.json({
+    return apiSuccess({
       id: `log-${Date.now()}`,
       ...parsed.data,
       created_at: new Date().toISOString(),
     })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    return apiError(message)
   }
 }

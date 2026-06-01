@@ -127,7 +127,7 @@ export class SocialMediaAgent {
 
     // 2. Analizar con Gemini en lotes
     console.log(`[Agent] Analizando ${allPosts.length} posts con Gemini...`)
-    let incidentsFound: GeminiAnalysis[] = []
+    let incidentsFound: GeminiAnalysis[]
 
     try {
       incidentsFound = await this.analyzer.analyzeInBatches(allPosts, 5)
