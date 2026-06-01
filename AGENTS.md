@@ -91,7 +91,6 @@ Rate limiting is applied via `lib/rate-limit.ts`.
 
 ### Performance
 - **N+1 queries in AI agent**: `SocialMediaAgent.persistIncident()` executes 3 sequential Supabase queries per incident. Consider batching.
-- **CrisisMap re-renders**: `filteredIncidents`, severity counts, and Leaflet icons are recalculated on every render. Add `useMemo` for optimization.
 
 ### Architecture
 - **Middleware deprecation**: Next.js 16 marks `middleware.ts` as deprecated in favor of "proxy". Current implementation works but should be migrated.

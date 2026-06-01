@@ -104,7 +104,26 @@ export function CrisisMap() {
     )
   }
 
-  const filteredIncidents = incidents.filter((i) => activeLayers.includes(i.source))
+  const filteredIncidents = useMemo(
+    () => incidents.filter((i) => activeLayers.includes(i.source)),
+    [incidents, activeLayers]
+  )
+
+  const sourceCounts = useMemo(() => {
+    const counts: Record<IncidentSource, number> = { social: 0, sensor: 0, camera: 0 }
+    for (const i of incidents) {
+      counts[i.source]++
+    }
+    return counts
+  }, [incidents])
+
+  const severityCounts = useMemo(() => {
+    const counts = { critical: 0, high: 0, medium: 0, low: 0 }
+    for (const i of filteredIncidents) {
+      counts[i.severity]++
+    }
+    return counts
+  }, [filteredIncidents])
 
   // ── Deploy handlers ───────────────────────────────────────────────────────
   const handleOpenDeploy = () => {
@@ -236,7 +255,7 @@ export function CrisisMap() {
                         <span className="text-xs">{sourceLabel(layer)}</span>
                       </div>
                       <Badge variant="outline" className="ml-auto text-[10px] h-5">
-                        {incidents.filter((i) => i.source === layer).length}
+                        {sourceCounts[layer]}
                       </Badge>
                     </label>
                   ))}
@@ -260,7 +279,7 @@ export function CrisisMap() {
                 variant="outline"
                 className={cn("hidden text-[10px] sm:inline-flex", colorMap[sev])}
               >
-                {filteredIncidents.filter((i) => i.severity === sev).length} {labelMap[sev]}
+                {severityCounts[sev]} {labelMap[sev]}
               </Badge>
             )
           })}

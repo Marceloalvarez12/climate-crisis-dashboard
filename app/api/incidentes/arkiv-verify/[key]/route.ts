@@ -63,6 +63,9 @@ function validateKey(key: string): Response | null {
   if (key.length !== 66) {
     return apiError(`Invalid key length: ${key.length}. Must be 66 characters.`, 400)
   }
+  if (!/^0x[0-9a-fA-F]{64}$/.test(key)) {
+    return apiError("Invalid hex format. Key must be 0x followed by 64 hexadecimal characters.", 400)
+  }
   return null
 }
 
