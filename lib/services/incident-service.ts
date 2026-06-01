@@ -25,9 +25,57 @@ async function cleanupExpiredAiIncidents(): Promise<void> {
   }
 }
 
+async function cleanupOldAttendedIncidents(): Promise<void> {
+  const { count, error: countError } = await supabase
+    .from("incidentes")
+    .select("*", { count: "exact", head: true })
+    .eq("estado", "atendido")
+
+  if (countError) {
+    console.error("[History Cleanup] Failed to count attended incidents:", countError.message)
+    return
+  }
+
+  const totalAttended = count || 0
+  if (totalAttended <= CONFIG.INCIDENTS.MAX_HISTORY) {
+    return
+  }
+
+  const excess = totalAttended - CONFIG.INCIDENTS.MAX_HISTORY
+
+  const { data: oldIncidents, error: selectError } = await supabase
+    .from("incidentes")
+    .select("id")
+    .eq("estado", "atendido")
+    .order("created_at", { ascending: true })
+    .limit(excess)
+
+  if (selectError) {
+    console.error("[History Cleanup] Failed to select old incidents:", selectError.message)
+    return
+  }
+
+  if (!oldIncidents || oldIncidents.length === 0) {
+    return
+  }
+
+  const idsToDelete = oldIncidents.map(i => i.id)
+  const { error: deleteError } = await supabase
+    .from("incidentes")
+    .delete()
+    .in("id", idsToDelete)
+
+  if (deleteError) {
+    console.error("[History Cleanup] Failed to delete old incidents:", deleteError.message)
+  } else {
+    console.log(`[History Cleanup] Deleted ${idsToDelete.length} old attended incidents`)
+  }
+}
+
 export class IncidentService {
   static async getActiveIncidents(): Promise<DbIncident[]> {
     await cleanupExpiredAiIncidents()
+    await cleanupOldAttendedIncidents()
 
     const { data, error } = await supabase
       .from("incidentes")
@@ -46,6 +94,7 @@ export class IncidentService {
       .select("*")
       .or("estado.eq.atendido,and(estado.eq.activo,fuente.eq.social)")
       .order("created_at", { ascending: false })
+      .limit(CONFIG.INCIDENTS.MAX_HISTORY)
 
     if (error) throw new Error(`Failed to fetch incidents: ${error.message}`)
     return data || []
