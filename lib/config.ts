@@ -16,6 +16,14 @@ export const CONFIG = {
     EXPLORER_URL: "https://explorer.braga.hoodi.arkiv.network/entity",
     SIMULATED_KEY_PREFIX: "0xSimulated",
   },
+  STELLAR: {
+    NETWORK: process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet",
+    HORIZON_URL: process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org",
+    SOROBAN_RPC_URL: process.env.NEXT_PUBLIC_STELLAR_SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org",
+    EXPLORER_URL: "https://stellar.expert/explorer/testnet",
+    VERIFIER_CONTRACT_ID: process.env.NEXT_PUBLIC_STELLAR_VERIFIER_CONTRACT_ID || "CAMZ5UVX7HY5XP53VUXS64QXXHXCTBMYFU7QMGWMCDDQRYJQBFBVLJGD",
+    SIMULATED_KEY_PREFIX: "SIMULATED",
+  },
   SEARCH_KEYWORDS: [
     "inundacion", "inundación", "desborde", "crecida", "canal",
     "incendio", "fuego", "quema", "humo", "bomberos",

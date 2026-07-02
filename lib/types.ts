@@ -11,7 +11,7 @@
 
 export type IncidentType     = "flood" | "fire" | "storm" | "looting" | "violence" | "accident" | "general"
 export type IncidentSeverity = "critical" | "high" | "medium" | "low"
-export type IncidentSource   = "social" | "sensor" | "camera"
+export type IncidentSource   = "social" | "sensor" | "camera" | "citizen"
 
 export interface IncidentSourceDetails {
   // Social
@@ -37,6 +37,27 @@ export interface IncidentSourceDetails {
     relatedPostIds?: string[]
     arkiv_entity_key?: string
   }
+  // ZK Citizen Report
+  zk_proof?: Record<string, unknown>
+  zk_public_signals?: string[]
+  zk_input?: Record<string, string>
+  stellar_audit?: Record<string, unknown>
+  descripcion?: string
+}
+
+export interface ZkCitizenReport {
+  lat: number
+  lng: number
+  tipo: IncidentType
+  severidad: IncidentSeverity
+  ubicacion: string
+  personasAfectadas: number
+  descripcion?: string
+  zoneHash?: number
+  minLat?: number
+  maxLat?: number
+  minLng?: number
+  maxLng?: number
 }
 
 export interface Incident {
@@ -112,5 +133,6 @@ export interface EmergencyIncident {
 export interface ArkivDispatchResponse {
   success: boolean
   entityKey?: string
+  stellarAudit?: Record<string, unknown>
   error?: string
 }
