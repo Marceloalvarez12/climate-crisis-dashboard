@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-const PUBLIC_PATHS = ["/_next", "/favicon.ico", "/api/analytics", "/api/incidentes/arkiv-verify"]
+const PUBLIC_PATHS = [
+  "/_next",
+  "/favicon.ico",
+  "/api/analytics",
+  "/api/incidentes/arkiv-verify",
+  "/api/stellar",
+  "/api/incidentes/zk-verify",
+]
+
+// Path segments that should be public (exact match or dynamic id)
+const PUBLIC_PATH_PATTERNS = [
+  /^\/api\/incidentes\/[0-9a-fA-F-]{36}$/, // UUID-style incident detail
+]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next()
+  }
+
+  if (PUBLIC_PATH_PATTERNS.some((p) => p.test(pathname))) {
     return NextResponse.next()
   }
 
