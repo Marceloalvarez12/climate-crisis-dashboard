@@ -1,99 +1,123 @@
 # Climate Crisis Dashboard — Tucumán
-### Hackathon Track: Arkiv × Puna Tech Builder Challenge 2026
 
-**Climate Crisis Dashboard** es una plataforma inteligente de simulación y gestión de emergencias en tiempo real para **San Miguel de Tucumán**, diseñada específicamente para la toma de decisiones gubernamentales (B2G). 
+Dashboard inteligente de gestión de emergencias climáticas en tiempo real para **San Miguel de Tucumán**, Argentina.
 
-El sistema demuestra cómo la convergencia de **Inteligencia Artificial (Google Gemini 2.0 Flash)** y **Blockchain (Arkiv Network)** resuelve el colapso de las líneas de emergencia tradicionales (911) durante catástrofes climáticas, garantizando una ingesta automatizada de reportes y un registro público, transparente e inmutable de la respuesta del Estado.
-
----
-
-## 👥 Datos del Equipo
-*   **Participante:** Alvarez, Marcelo Simon
-*   **Rol:** Fullstack Developer & Web3/AI Integrator
-*   **Repositorio del Proyecto:** [climate-crisis-dashboard](https://github.com/Arkiv-Network/arkiv-puna-tech-hackathon)
+Combina **inteligencia artificial**, **blockchain (Arkiv)** y **pruebas de conocimiento cero (Stellar/Soroban)** para demostrar cómo una ciudad puede recibir, validar, despachar y auditar emergencias sin depender únicamente de líneas 911 saturadas.
 
 ---
 
-## 🔗 Evidencia de Integración Arkiv (Prueba de Transacción On-Chain)
-Para certificar que el sistema interactúa de manera real y exitosa con la blockchain **Braga Testnet de Arkiv Network**, aquí se presentan los hashes y enlaces del explorador generados durante las pruebas oficiales:
-*   **Dirección de la Billetera del Operador:** `0xb5443307029efA0a1F1BF44421CCCaF3249ac0e4`
-*   **Entity Key en Braga Testnet (Registro Inmutable):** `0x5d0d95f154889e650afe18c6c4a86d2ada55ca8a238061776a03f0878cec3558`
-*   **Enlace al Explorador de Braga (Blockscout):** [Ver Entidad Auditada en Arkiv Explorer](https://explorer.braga.hoodi.arkiv.network/entity/0x5d0d95f154889e650afe18c6c4a86d2ada55ca8a238061776a03f0878cec3558)
+## 🎯 Propósito del proyecto
+
+Durante una catástrofe climática las líneas de emergencia colapsan, los reportes falsos se multiplican y la ciudad pierde tiempo valioso validando información. Este sistema propone un centro de crisis digital que:
+
+1. **Escucha** múltiples fuentes: redes sociales (simuladas), sensores, cámaras y **reportes ciudadanos**.
+2. **Valida** con IA si un reporte describe una emergencia real, estimando severidad, ubicación y afectados.
+3. **Despacha** recursos y audita cada acción en blockchain (Arkiv Braga Testnet).
+4. **Permite reportes ciudadanos anónimos verificables** mediante ZK (Stellar Hacks), donde el vecino demuestra que está dentro de una zona de riesgo oficial sin revelar su ubicación exacta.
+5. **Expone** toda la trazabilidad en portales públicos de auditoría.
 
 ---
 
-## 🚀 Arquitectura Avanzada e Integración Blockchain Premium
+## 🚀 Demo principal
 
-Para este desafío, hemos llevado la integración de **Arkiv Blockchain** a un nivel sumamente competitivo, inspirándonos en la arquitectura de proyectos ganadores previos como `ark-hive` (pensamientos on-chain enlazados) y `Cortex` (ciclo de vida de memoria evolutiva).
+La URL más importante para el hackathon es el dashboard con el panel de simulación:
 
-### 1. "Darwinian Emergency Lease" (Inspirado en Cortex)
-Actualmente, subir reportes masivos a una red descentralizada de forma permanente genera saturación y costos innecesarios. Implementamos un sistema de ciclo de vida evolutivo dinámico:
-*   **Detección de IA (Lease Corto)**: Cuando el `SocialMediaAgent` detecta un incidente en redes sociales, lo registra en **Braga Testnet** con un lease corto de **1 hora** (`expiresIn: 3600`). Si no hay intervención humana en ese lapso, el reporte "muere" (decae) y se auto-elimina del ledger on-chain, limpiando el histórico de falsas alarmas.
-*   **Validación Humana (Extensión de Lease)**: En cuanto el operador civil confirma el incidente y despacha unidades desde el panel de control, el backend llama a `walletClient.extendEntity` para **extender la vida del reporte original a 7 días** (`expiresIn: 604800`). Solo las crisis reales validadas por humanos perduran en el ledger de largo plazo.
+```
+http://localhost:3000?dev=true
+```
 
-### 2. "Tethered Audit Trail" (Inspirado en ark-hive)
-En lugar de registrar eventos de despacho aislados, el sistema genera una línea de auditoría criptográficamente enlazada:
-*   Al despachar recursos, se emite una transacción en Braga Testnet que crea un nuevo registro inmutable con el payload de despacho (unidades enviadas, dirección del operador, fecha, etc.).
-*   Este registro incluye un atributo de búsqueda indexado `detectionKey` que apunta directamente a la Entity Key de la detección inicial de IA. Esto permite trazar el camino completo (Detección de IA ➡️ Validación Humana) sin depender de una base de datos centralizada.
+El parámetro `?dev=true` activa el panel de simulación en la esquina inferior izquierda, desde donde podés:
 
-### 3. Portal de Auditoría Ciudadana Interactivo (`/auditoria`)
-Rediseñamos la página de auditoría ciudadana para ofrecer una visualización en línea de tiempo interactiva y animada:
-*   Si la Entity Key consultada tiene una entidad vinculada (una alerta enlazada con un despacho o viceversa), el portal realiza consultas en paralelo a la blockchain y renderiza la **Línea de Tiempo de Auditoría de la Emergencia**:
-    1.  🤖 **Paso 1: Detección por IA**: Muestra la fecha de escaneo, la severidad original, el nivel de confianza y el razonamiento analítico de Gemini 2.0 Flash sellado en la blockchain.
-    2.  👤 **Paso 2: Validación y Despacho Humano**: Detalla los recursos desplegados, el vencimiento del lease extendido a 7 días, y la dirección de la billetera del operador que firmó la acción.
-
-### 4. Resolución de Entidades Híbridas (On-Chain + DB Fallback)
-Para garantizar la mejor experiencia durante demostraciones híbridas (donde un incidente puede originarse de sensores locales simulados pero recibir un despacho real on-chain):
-*   Nuestra API `/api/incidentes/arkiv-verify/[key]` resuelve dinámicamente las claves cruzadas.
-*   Si se busca un despacho real en Braga Testnet cuya alerta original fue generada por el simulador local, el endpoint recupera la firma y metadatos de Braga y reconstruye transparentemente el paso de IA desde Supabase, permitiendo visualizar la línea de tiempo auditada en su totalidad sin romperse.
+- Inyectar reportes ciudadanos ZK manualmente.
+- Iniciar/detener la simulación dinámica.
+- Limpiar incidentes simulados.
+- Despachar recursos y ver cómo se registran en Arkiv.
 
 ---
 
-## 🛠️ Mitigación de Errores Críticos (Web3 Shielding)
+## 🏢 Arquitectura
 
-Durante el despliegue del proyecto, identificamos y solucionamos dos problemas estructurales de red y seguridad:
-1.  **Protección de API y Headers de Middleware**:
-    El middleware de Next.js (`middleware.ts`) restringe el acceso a los endpoints internos de la API `/api/*` mediante un token de autenticación (`x-api-secret`). Corregimos las llamadas asíncronas de despacho (`/api/incidentes/arkiv-dispatch`) agregando la cabecera correspondiente de forma segura desde el cliente con la variable expuesta `NEXT_PUBLIC_API_SECRET`. Esto desbloqueó el flujo de firma on-chain que previamente era interrumpido con errores `401 Unauthorized`.
-2.  **Alineación de Redirección del Explorador**:
-    Corregimos las rutas de redirección hacia el explorador de bloques de Braga. Previamente apuntaban al subdominio RPC (`braga.hoodi.arkiv.network`) el cual devolvía errores `404 page not found`. Se modificaron todos los enlaces en el dashboard, historial y código QR para apuntar al explorador Blockscout oficial en **`https://explorer.braga.hoodi.arkiv.network/entity/${key}`**, permitiendo la navegación directa a las entidades del ledger.
-
----
-
-## 🚀 La Solución: ¿Cómo funciona el Climate Crisis Dashboard?
-
-1.  **Ingesta de Reportes Multicanal**: Simula una ingesta continua desde redes sociales (X/Twitter, Facebook, Instagram), sensores de caudal meteorológico y cámaras de videovigilancia ciudadana.
-2.  **Filtrado por IA**: Un Agente de IA lee constantemente la cola de mensajes en tiempo real y, mediante Gemini 2.0 Flash, filtra reportes falsos, estima personas afectadas, clasifica la severidad (`critical`, `high`, `medium`, `low`), extrae la ubicación exacta y sugiere planes de acción.
-3.  **Monitoreo y Despacho Georreferenciado**: Las alertas verificadas por la IA se persisten en **Supabase** y se renderizan al instante en el mapa interactivo. El operador evalúa el incidente, selecciona las unidades a despachar (ambulancias, bomberos, botes, policía, etc.) e inicia el envío.
-4.  **Auditoría y Certificación On-Chain (Arkiv Network)**: Al autorizar el envío, la solicitud se firma digitalmente y se envía a la **Blockchain de Arkiv (Red Braga - Testnet)**. Este proceso crea una entidad inmutable en la blockchain con los detalles específicos del incidente y los recursos asignados.
-5.  **Reportes PDF con Doble Sello y Planilla General**:
-    *   **Reporte Individual**: Permite descargar un reporte PDF oficial para cada incidente que contiene el **Doble Sello de Verificación On-Chain**: el *Sello de Detección de IA (Gemini 2.0)* (con color esmeralda) y el *Sello de Despacho Operativo (Comando)* (con color azul), ambos con códigos QR individuales que apuntan directamente al explorador de blockchain Braga.
-    *   **Planilla Operativa de Situación**: Genera una planilla de control general consolidada en formato horizontal, que incluye una **Tabla de Historial de Incidentes Auditados On-Chain** detallando los tiempos de resolución, ubicaciones, severidades y los hashes de transacción criptográfica (IA y Despacho) de cada suceso histórico para máxima transparencia administrativa.
+| Capa | Tecnología | Rol |
+|------|-----------|-----|
+| Frontend & routing | Next.js 16 (App Router) + TypeScript | Dashboard, mapa, portales públicos |
+| Estilos | Tailwind CSS v4 + Radix UI + shadcn/ui | UI oscura premium, responsiva |
+| Mapas | Leaflet + React-Leaflet | Visualización georreferenciada de incidentes |
+| Base de datos | Supabase (PostgreSQL + Realtime) | Persistencia, WebSockets, historial |
+| Inteligencia artificial | Google Gemini 2.0 Flash — con OpenRouter como alternativa gratuita | Análisis de posts y reportes |
+| Blockchain principal | Arkiv Network (Braga Testnet) | Auditoría inmutable de detecciones IA y despachos |
+| Reporte ciudadano ZK | Circom 2.0 + snarkjs (Groth16) + Stellar/Soroban simulado | Privacidad verificable sin revelar ubicación exacta |
 
 ---
 
-## ✨ Características de Competitividad (Efecto WOW)
+## 🔑 Flujos del sistema
 
-1.  **Portal Público de Auditoría Ciudadana (`/auditoria`)**: Una página web pública e independiente (sin necesidad de loguearse) diseñada para generar confianza y transparencia. Cualquier ciudadano, periodista o auditor gubernamental puede ingresar y pegar el Hash de Arkiv para ver los datos inmutables decodificados en tiempo real directamente de la blockchain.
-2.  **Sincronización en Tiempo Real (Supabase Realtime)**: Reemplazamos el polling tradicional en el cliente por conexiones de WebSockets directas con Supabase. Cuando un incidente es detectado por la IA o resuelto por un operador, el mapa, la lista de incidentes activos e históricos, y los paneles de analíticas se actualizan instantáneamente sin refrescar la pestaña.
-3.  **Animación de Radar Sonar Beacon (Efecto WOW)**: Los incidentes de severidad **Crítica** y **Alta** en el mapa interactivo de Leaflet cuentan con una animación de radar expansivo de color a juego con su gravedad. Esta onda de choque visual atrae inmediatamente la atención del operador durante momentos críticos.
+### 1. Detección IA y despacho auditable (Arkiv)
+
+```
+Redes sociales / sensores / cámaras
+        ↓
+  SocialMediaAgent (IA)
+        ↓
+   Incidente en Supabase
+        ↓
+  Operador despacha recurso
+        ↓
+  Firma en Arkiv Braga Testnet
+        ↓
+  Portal /auditoria + seguimiento
+```
+
+- El agente de IA analiza posts y detecta emergencias.
+- Cada incidente puede recibir un despacho de recursos.
+- El despacho se firma en la blockchain de Arkiv, generando una entidad inmutable.
+- El ciudadano y el operador pueden consultar la trazabilidad en `/auditoria`.
+
+### 2. Reporte ciudadano anónimo verificable (Stellar ZK)
+
+```
+Ciudadano entra a /reportar
+        ↓
+  Ingresa tipo, severidad y datos aproximados
+        ↓
+  Navegador envía lat/lng reales al backend
+        ↓
+  Backend genera proof Circom/Groth16
+        ↓
+  Verifica localmente con snarkjs
+        ↓
+  Persiste incidente con fuente="citizen"
+        ↓
+  Ciudadano ve seguimiento en /seguimiento/[id]
+```
+
+- El ciudadano demuestra que está dentro de una zona de riesgo oficial.
+- El proof es públicamente verificable; la ubicación exacta no se expone en la prueba.
+- El sistema guarda la ubicación exacta sólo en la base de datos operativa para mostrar el punto en el mapa.
+- Endpoints:
+  - `POST /api/incidentes/zk-verify` — público, genera y verifica un proof sin persistir.
+  - `POST /api/incidentes/zk-report` — protegido, flujo completo con persistencia.
+  - `POST /api/incidentes/zk-report?dryRun=true` — flujo completo sin tocar la base de datos.
+
+### 3. Seguimiento ciudadano
+
+Cualquier persona puede entrar a:
+
+```
+/seguimiento/[id-del-incidente]
+```
+
+Y ver:
+
+- Estado del reporte (activo / atendido / resuelto).
+- Verificación ZK sellada.
+- Auditoría Arkiv cuando el incidente recibió despacho.
+- Timestamp y link al explorador.
 
 ---
 
-## 🛠️ Stack Tecnológico
+## 🔐 Variables de entorno
 
--   **Frontend & Routing**: Next.js 16 (App Router + TypeScript)
--   **Diseño Visual**: Tailwind CSS v4 + Radix UI + HSL Custom Palettes (Diseño oscuro premium de alta fidelidad)
--   **Motor de Mapas**: Leaflet + React-Leaflet (Centrado geográficamente en San Miguel de Tucumán)
--   **Capa de Inteligencia Artificial**: Google Generative AI SDK (Gemini 2.0 Flash)
--   **Capa de Base de Datos**: Supabase (PostgreSQL para persistencia relacional en tiempo real)
--   **Capa de Blockchain**: `@arkiv-network/sdk` (Instanciación de clientes públicos y de billetera en la red Braga Testnet)
--   **Control del Simulador**: Panel de desarrollo integrado (consola de control en la esquina inferior izquierda)
-
----
-
-## 🔑 Variables de Entorno
-
-Crea un archivo `.env.local` en la raíz del proyecto para conectar las APIs reales:
+Crear `.env.local` en la raíz del proyecto:
 
 ```env
 # Supabase
@@ -101,8 +125,12 @@ NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key
 SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key
 
-# Google AI Studio (Gemini)
+# Google AI Studio (Gemini) — usado como analizador principal o fallback
 GOOGLE_AI_API_KEY=tu-gemini-api-key
+
+# OpenRouter (alternativa gratuita a Gemini)
+OPENROUTER_API_KEY=sk-or-v1-tu-openrouter-key
+OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct
 
 # Seguridad de API
 API_SECRET=clave-aleatoria-de-api
@@ -110,19 +138,100 @@ NEXT_PUBLIC_API_SECRET=clave-aleatoria-de-api
 
 # Blockchain Arkiv
 ARKIV_PRIVATE_KEY=0x_tu_private_key_aqui
+
+# Stellar / Soroban (ZK verifier)
+# El contrato verifier está desplegado en Stellar TESTNET:
+#   CCX7FMGEF627I74U37ABFYIYJYGXVHHULN5JC5VLXAOG2NU3LB5YUCGM
+# `verify_and_store` (no read-only) crea una TX real on-chain y persiste un AuditRecord.
+# Sin `STELLAR_SECRET_KEY` válida, el sistema cae a modo simulado (snarkjs local).
+STELLAR_SECRET_KEY=SCGSTV73HMPAFVB2TJ3YJ5M2QLK3RAEDUE2NGJUP3YGHAE3AEUWUBCIL
+```
+
+> ⚠️ **Nunca subís `.env.local` a git.** El repositorio ya ignora archivos `.env*`.
+
+---
+
+## 🎮 Instalación y ejecución local
+
+```bash
+npm install
+npm run dev
+```
+
+Abrir:
+
+```
+http://localhost:3000?dev=true
+```
+
+Para probar reportes ciudadanos ZK:
+
+```
+http://localhost:3000/reportar
+```
+
+Para auditoría de proofs:
+
+```
+http://localhost:3000/stellar-auditoria
+```
+
+Para auditoría Arkiv:
+
+```
+http://localhost:3000/auditoria
 ```
 
 ---
 
-## 🎬 Instalación y Ejecución Local
+## 📋 Estado de las integraciones
 
-1.  Clona el repositorio e instala las dependencias:
-    ```bash
-    npm install
-    ```
-2.  Inicia el servidor de desarrollo local:
-    ```bash
-    npm run dev
-    ```
-3.  Ingresa a tu navegador en: [http://localhost:3000?dev=true](http://localhost:3000?dev=true).
-    *El parámetro `?dev=true` activa la barra de simulación en la esquina inferior izquierda. Desde allí puedes forzar la ingesta por IA, simular reportes críticos y activar/detener la simulación.*
+| Integración | Estado | Notas |
+|-------------|--------|-------|
+| Supabase Realtime | ✅ Funcional | Incidentes y recursos en tiempo real |
+| Arkiv Braga Testnet | ✅ Funcional | Despacho y auditoría on-chain reales |
+| Gemini 2.0 Flash | ✅ Funcional | Análisis de posts; requiere `GOOGLE_AI_API_KEY` |
+| OpenRouter | ✅ Funcional | Alternativa gratuita; requiere `OPENROUTER_API_KEY` |
+| Circom/Groth16 proof | ✅ Funcional | Verificación local con `snarkjs` |
+| Stellar/Soroban verifier | ✅ Desplegado | Contrato `CCX7FMGEF627I74U37ABFYIYJYGXVHHULN5JC5VLXAOG2NU3LB5YUCGM` en testnet; `verify_and_store` persiste audit on-chain |
+
+## 🔗 Evidencia Stellar/Soroban (ejemplo histórico)
+
+- **Operator account:** `GDAA5YJMSKHH2IKPNDIG252KKT2PSHVDLLURPQKYRGFSD4HHIJB5MBOR`
+- **Verifier contract:** `CCX7FMGEF627I74U37ABFYIYJYGXVHHULN5JC5VLXAOG2NU3LB5YUCGM`
+- **WASM upload tx:** [eb47c317…fa14a](https://stellar.expert/explorer/testnet/tx/eb47c317ffb0b873c3ca538ac97835ca17347e5431c163b96d24d18d5a9fa14a)
+- **Contract deploy tx:** [f572660c…b20c7f](https://stellar.expert/explorer/testnet/tx/f572660c59e8386e6157523d70a6cede541e29d25851200f57522a15ffb20c7f)
+- **Sample verify_and_store tx:** [7e664d9f…ac808](https://stellar.expert/explorer/testnet/tx/7e664d9f01e1fe82bb506fa1441059e295baf681e1766ef31935c4045a6ac808) (audit stored: `valid=true`, `operator=GDAA5Y…`, `journal_digest_lo/hi` populated)
+- **End-to-end HTTP demo tx (incident `dbb10422-…`):** [dc531277…4b710](https://stellar.expert/explorer/testnet/tx/dc531277bc51b77dfffa0c01d771fc804bf8dd8d457928b92e91b18013e4b710) (proof generado por snarkjs, verificado y persistido on-chain vía `/api/incidentes/zk-report`)
+- **Explorador del contrato:** [Ver contrato en Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCX7FMGEF627I74U37ABFYIYJYGXVHHULN5JC5VLXAOG2NU3LB5YUCGM)
+
+---
+
+## 📝 Notas de arquitectura
+
+- **Simulación controlada**: el panel `?dev=true` tiene límite de 5 incidentes activos, auto-resolución a los 2 minutos y limpieza manual para evitar que la base de datos se llene como ocurría con versiones anteriores.
+- **Middleware de seguridad**: los endpoints `/api/*` requieren `x-api-secret` salvo los marcados como públicos (`/api/analytics`, `/api/incidentes/zk-verify`, `/api/incidentes/[id]` para seguimiento ciudadano).
+- **Fuentes del sistema**: se reemplazaron las fuentes Google por fuentes del sistema para evitar fallas de build offline.
+
+---
+
+## 🔗 Evidencia Arkiv (ejemplo histórico)
+
+- **Dirección del operador:** `0xb5443307029efA0a1F1BF44421CCCaF3249ac0e4`
+- **Entity Key en Braga Testnet:** `0x5d0d95f154889e650afe18c6c4a86d2ada55ca8a238061776a03f0878cec3558`
+- **Explorador:** [Ver entidad auditada](https://explorer.braga.hoodi.arkiv.network/entity/0x5d0d95f154889e650afe18c6c4a86d2ada55ca8a238061776a03f0878cec3558)
+
+---
+
+## 👥 Equipo
+
+- **Participante:** Alvarez, Marcelo Simón
+- **Rol:** Fullstack Developer & Web3/AI Integrator
+- **Repositorio:** [climate-crisis-dashboard](https://github.com/Arkiv-Network/arkiv-puna-tech-hackathon)
+
+---
+
+## 🌟 Tracks presentados
+
+- **Arkiv × Puna Tech Builder Challenge 2026:** auditoría on-chain de detecciones IA y despachos operativos.
+# Stellar Hacks: Real-World ZK — reporte ciudadano anónimo verificable con Circom + Groth16 on-chain en Soroban.
