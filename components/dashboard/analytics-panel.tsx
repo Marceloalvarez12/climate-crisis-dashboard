@@ -1,7 +1,7 @@
 "use client"
 
 import useSWR from "swr"
-import { AlertTriangle, Users, Clock, TrendingUp, TrendingDown, Activity, Shield } from "lucide-react"
+import { AlertTriangle, Users, Clock, TrendingUp, TrendingDown, Activity, Shield, RadioTower } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { fetcher } from "@/lib/api"
 
@@ -12,6 +12,7 @@ interface AnalyticsData {
   highCount: number
   mediumCount: number
   lowCount: number
+  citizenCount: number
   affectedNow: number
   affectedChange: number
   avgResponseMin: number | null
@@ -74,7 +75,7 @@ export function AnalyticsPanel() {
     {
       id: "risk",
       label: "Risk Level",
-      // Show BAJO when active but no critical/high, show — when no data yet
+      // Show LOW when active but no critical/high, show — when no data yet
       value: !d || d.activeIncidentCount === 0 ? "NO INCIDENTS" : d.riskLevel,
       icon: <AlertTriangle className="h-4 w-4" />,
       color: riskColor,
@@ -111,8 +112,16 @@ export function AnalyticsPanel() {
             d.highCount > 0      ? `${d.highCount} high` : null,
             d.mediumCount > 0    ? `${d.mediumCount} med` : null,
             d.lowCount > 0       ? `${d.lowCount} low` : null,
+            d.citizenCount > 0   ? `${d.citizenCount} citizen` : null,
           ].filter(Boolean).join(" · ") || undefined
         : undefined,
+    },
+    {
+      id: "citizen",
+      label: "Citizen Reports",
+      value: d?.citizenCount ?? "—",
+      icon: <RadioTower className="h-4 w-4" />,
+      color: d && d.citizenCount > 0 ? "accent" : "muted",
     },
     {
       id: "resources",
@@ -171,7 +180,7 @@ export function AnalyticsPanel() {
           <span className="text-[10px] text-muted-foreground">{d ? "Live" : "Loading..."}</span>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         {metrics.map((metric) => (
           <div
             key={metric.id}

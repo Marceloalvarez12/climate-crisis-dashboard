@@ -29,15 +29,15 @@ export function SatelliteModal({ validation, onClose }: SatelliteModalProps) {
 
         {validation && (
           <div className="space-y-4">
-            {/* Imagen satelital */}
+            {/* Satellite image */}
             <div className="relative rounded-lg overflow-hidden border border-border">
               <img
                 src={validation.imageUrl}
-                alt="Imagen satelital de la zona afectada"
+                alt="Satellite image of the affected area"
                 className="w-full h-48 object-cover"
               />
               <div className="absolute top-2 left-2 flex gap-1.5">
-                <Badge className="bg-green-500/90 text-white text-[10px]">EN VIVO</Badge>
+                <Badge className="bg-green-500/90 text-white text-[10px]">LIVE</Badge>
                 <Badge variant="outline" className="bg-background/80 text-[10px]">
                   {validation.analysisData.satellite}
                 </Badge>
@@ -61,7 +61,7 @@ export function SatelliteModal({ validation, onClose }: SatelliteModalProps) {
               />
             </div>
 
-            {/* Grid de análisis */}
+            {/* Analysis grid */}
             <div className="grid grid-cols-2 gap-3">
               {[
                 {
@@ -92,7 +92,7 @@ export function SatelliteModal({ validation, onClose }: SatelliteModalProps) {
               ))}
             </div>
 
-            {/* Validación exitosa */}
+            {/* Successful validation */}
             <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

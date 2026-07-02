@@ -42,10 +42,17 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-2">
+        <Link href="/reportar" target="_blank" className="sm:block">
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 border-indigo-500/20 bg-indigo-500/5 text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300 text-xs font-semibold cursor-pointer">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            ZK Report
+          </Button>
+        </Link>
+
         <Link href="/auditoria" target="_blank" className="sm:block">
           <Button variant="outline" size="sm" className="h-8 gap-1.5 border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs font-semibold cursor-pointer">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Portal de Auditoría
+            Audit Portal
           </Button>
         </Link>
 

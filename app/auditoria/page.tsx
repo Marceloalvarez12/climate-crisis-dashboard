@@ -38,7 +38,7 @@ function AuditoriaContent() {
     const trimmed = keyToVerify.trim()
     if (!trimmed) return
     if (!trimmed.startsWith("0x")) {
-      setError("La llave de entidad debe comenzar con '0x'")
+      setError("Entity key must start with '0x'")
       setVerified(false)
       setData(null)
       return
@@ -66,14 +66,14 @@ function AuditoriaContent() {
           relation: json.relation,
         })
         setVerified(true)
-        toast.success("Verificación Completada", {
-          description: "Entidad encontrada en Braga Testnet.",
+        toast.success("Verification Completed", {
+          description: "Entity found on Braga Testnet.",
         })
       } else {
-        setError(json.error || "No se pudo verificar la entidad on-chain.")
+        setError(json.error || "Could not verify the entity on-chain.")
       }
     } catch (err) {
-      setError("Error de red al intentar conectar con la red Braga.")
+      setError("Network error trying to connect to the Braga network.")
     } finally {
       setLoading(false)
     }
@@ -89,8 +89,8 @@ function AuditoriaContent() {
     navigator.clipboard.writeText(window.location.href)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-    toast.success("Enlace copiado", {
-      description: "Compartí esta auditoría con otros ciudadanos.",
+    toast.success("Link copied", {
+      description: "Share this audit with other citizens.",
     })
   }
 
@@ -98,18 +98,18 @@ function AuditoriaContent() {
     navigator.clipboard.writeText(hash)
     setCopiedHash(true)
     setTimeout(() => setCopiedHash(false), 2000)
-    toast.success("Hash copiado")
+    toast.success("Hash copied")
   }
 
-  // Mapeo de tipos de incidentes
+  // Incident type mapping
   const tipoLabel: Record<string, string> = {
-    flood: "Inundación / Alerta Hídrica",
-    fire: "Incendio Forestal / Urbano",
-    storm: "Tempestades / Vientos Fuertes",
-    looting: "Saqueo / Conflicto Social",
-    violence: "Violencia Civil",
-    accident: "Accidente Vial Grave",
-    general: "Alerta Operativa General",
+    flood: "Flood / Hydric Alert",
+    fire: "Forest / Urban Fire",
+    storm: "Storms / Strong Winds",
+    looting: "Looting / Social Conflict",
+    violence: "Civil Violence",
+    accident: "Serious Traffic Accident",
+    general: "General Operational Alert",
   }
 
   const severityColor: Record<string, string> = {
@@ -129,7 +129,7 @@ function AuditoriaContent() {
         <div className="mx-auto max-w-5xl flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors">
             <ArrowLeft className="h-4 w-4" />
-            Volver al Centro de Control
+            Back to Control Center
           </Link>
           <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -143,13 +143,13 @@ function AuditoriaContent() {
         {/* Title Section */}
         <div className="text-center space-y-3 mb-10">
           <Badge className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15 border-emerald-500/20 text-xs px-3 py-1 font-mono uppercase tracking-wider">
-            Auditoría Ciudadana Descentralizada
+            Decentralized Citizen Audit
           </Badge>
           <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-100 via-white to-zinc-400 sm:text-4xl">
-            Verificación Braga On-Chain
+            Braga On-Chain Verification
           </h1>
           <p className="max-w-xl mx-auto text-sm text-zinc-400 leading-relaxed">
-            Consultá de forma independiente cualquier reporte o despacho del Climate Crisis Center. Las firmas criptográficas son inmutables y de libre acceso.
+            Independently query any report or dispatch from the Climate Crisis Center. Cryptographic signatures are immutable and freely accessible.
           </p>
         </div>
 
@@ -166,7 +166,7 @@ function AuditoriaContent() {
               <Search className="absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-zinc-500" />
               <input
                 type="text"
-                placeholder="Pegá el Entity Key / Hash (0x...)"
+                placeholder="Paste Entity Key / Hash (0x...)"
                 value={inputKey}
                 onChange={(e) => setInputKey(e.target.value)}
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950/80 py-3 pl-10 pr-4 text-sm font-mono text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors"
@@ -180,10 +180,10 @@ function AuditoriaContent() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verificando
+                  Verifying
                 </>
               ) : (
-                "Buscar y Auditar"
+                "Search & Audit"
               )}
             </Button>
           </form>
@@ -194,8 +194,8 @@ function AuditoriaContent() {
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-12 text-center flex flex-col items-center justify-center gap-4">
             <Loader2 className="h-10 w-10 text-emerald-400 animate-spin" />
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-zinc-200">Leyendo bloque en Braga Testnet...</p>
-              <p className="text-xs text-zinc-500 font-mono">Consensuando firmas de operador y hashes de telemetría IA</p>
+              <p className="text-sm font-semibold text-zinc-200">Reading block on Braga Testnet...</p>
+              <p className="text-xs text-zinc-500 font-mono">Consensing operator signatures and AI telemetry hashes</p>
             </div>
           </div>
         )}
@@ -205,13 +205,13 @@ function AuditoriaContent() {
           <div className="rounded-xl border border-red-500/20 bg-red-950/20 p-6 flex flex-col gap-3">
             <div className="flex items-center gap-2.5 text-red-400">
               <ShieldAlert className="h-6 w-6 shrink-0" />
-              <h3 className="font-bold text-sm uppercase tracking-wider">Fallo de Verificación On-Chain</h3>
+              <h3 className="font-bold text-sm uppercase tracking-wider">On-Chain Verification Failed</h3>
             </div>
             <p className="text-xs text-zinc-300 font-medium">
-              No pudimos encontrar o verificar un registro con la llave ingresada. Asegurate de que sea un hash correcto y de que esté en la Braga Testnet.
+              We could not find or verify a record with the entered key. Make sure it is a correct hash and that it exists on the Braga Testnet.
             </p>
             <p className="text-[10px] text-zinc-500 font-mono bg-black/30 p-2 rounded">
-              Detalle: {error}
+              Detail: {error}
             </p>
           </div>
         )}
@@ -231,11 +231,11 @@ function AuditoriaContent() {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold text-white leading-tight">ENTIDAD CRIPTOGRÁFICAMENTE FIRMADA</h2>
-                      <Badge className="bg-emerald-500 text-black text-[9px] font-bold py-0.5 px-2">VALIDO</Badge>
+                      <h2 className="text-lg font-bold text-white leading-tight">CRYPTOGRAPHICALLY SIGNED ENTITY</h2>
+                      <Badge className="bg-emerald-500 text-black text-[9px] font-bold py-0.5 px-2">VALID</Badge>
                     </div>
                     <p className="text-xs text-emerald-300">
-                      Este registro ha sido sellado con una firma criptográfica inmutable en Braga Network.
+                      This record has been sealed with an immutable cryptographic signature on Braga Network.
                     </p>
                   </div>
                 </div>
@@ -243,16 +243,16 @@ function AuditoriaContent() {
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={copyUrl} className="h-8 text-xs border-zinc-700 bg-zinc-950 text-zinc-300 hover:text-white">
                     {copied ? <Check className="h-3 w-3 mr-1.5 text-emerald-400" /> : <Copy className="h-3 w-3 mr-1.5" />}
-                    Compartir Reporte
+                    Share Report
                   </Button>
                   {data.isSimulated ? (
                     <Badge className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-xs">
-                      Solo Local (Simulación)
+                      Local Only (Simulation)
                     </Badge>
                   ) : (
                     <Button variant="outline" size="sm" asChild className="h-8 text-xs border-emerald-500/20 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40">
                       <a href={`https://explorer.braga.hoodi.arkiv.network/entity/${inputKey}`} target="_blank" rel="noopener noreferrer">
-                        Explorador Arkiv
+                        Arkiv Explorer
                         <ExternalLink className="h-3 w-3 ml-1.5" />
                       </a>
                     </Button>
@@ -262,7 +262,7 @@ function AuditoriaContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-6 border-t border-emerald-500/20 text-xs">
                 <div className="space-y-1">
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Creador (Firma Criptográfica)</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Creator (Cryptographic Signature)</p>
                   <p className="font-mono text-zinc-300 truncate select-all" title={data.creator}>
                     {data.creator}
                   </p>
@@ -281,16 +281,16 @@ function AuditoriaContent() {
               </div>
             </div>
 
-            {/* Timeline de Auditoría Criptográfica */}
+            {/* Cryptographic Audit Timeline */}
             {data.linkedEntity ? (
               <div className="space-y-6">
                 <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
                   <RefreshCw className="h-4.5 w-4.5 text-emerald-500 animate-spin-slow" />
-                  Línea de Tiempo de Auditoría Enlazada (Multi-Key)
+                  Linked Multi-Key Audit Timeline
                 </h3>
 
                 <div className="relative border-l border-zinc-800 ml-4 pl-6 space-y-8">
-                  {/* Nodo 1: Detección de IA */}
+                  {/* Node 1: AI Detection */}
                   {(() => {
                     const isQueryingDetection = data.relation === 'detection_to_dispatch'
                     const detectionData = isQueryingDetection ? data : data.linkedEntity
@@ -307,19 +307,19 @@ function AuditoriaContent() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-mono">
-                                🤖 DETECCIÓN IA
+                                🤖 AI DETECTION
                               </Badge>
                               <h4 className="text-sm font-bold text-zinc-200">
                                 {payload.agent || 'Gemini 2.0 Flash'}
                               </h4>
                             </div>
                             <span className="text-[10px] text-zinc-500 font-mono">
-                              {payload.scannedAt ? new Date(payload.scannedAt).toLocaleTimeString('es-AR') : 'Escaneado'}
+                              {payload.scannedAt ? new Date(payload.scannedAt).toLocaleTimeString('en-US') : 'Scanned'}
                             </span>
                           </div>
 
                           <p className="text-xs text-zinc-300 font-medium">
-                            <span className="text-zinc-500 font-semibold">Alerta en:</span> {payload.location}
+                            <span className="text-zinc-500 font-semibold">Alert at:</span> {payload.location}
                           </p>
 
                           {payload.summary && (
@@ -330,26 +330,26 @@ function AuditoriaContent() {
 
                           {payload.reasoning && (
                             <div className="text-[11px] text-purple-300 bg-purple-950/20 border border-purple-900/30 p-2.5 rounded">
-                              <span className="font-bold text-purple-400 block mb-1">Razonamiento de IA:</span>
+                              <span className="font-bold text-purple-400 block mb-1">AI reasoning:</span>
                               {payload.reasoning}
                             </div>
                           )}
 
                           {payload.suggestedActions && (
                             <div className="text-[11px] text-zinc-400">
-                              <span className="font-semibold text-zinc-300 block mb-0.5">Acciones Sugeridas:</span>
+                              <span className="font-semibold text-zinc-300 block mb-0.5">Suggested Actions:</span>
                               {payload.suggestedActions}
                             </div>
                           )}
 
                           <div className="flex flex-wrap items-center gap-3 pt-2 text-[10px] text-zinc-500 font-mono border-t border-zinc-800/40">
-                            <span>Confianza: {payload.confidence ?? 90}%</span>
-                            <span>Tipo: {tipoLabel[payload.type || payload.tipo] || payload.type || payload.tipo}</span>
+                            <span>Confidence: {payload.confidence ?? 90}%</span>
+                            <span>Type: {tipoLabel[payload.type || payload.tipo] || payload.type || payload.tipo}</span>
                             <span>Key: <span className="text-purple-400 select-all font-semibold">{(isQueryingDetection ? inputKey : data.linkedEntity?.key || '').slice(0, 10)}...</span></span>
                             {data.isSimulated ? (
-                              <Badge className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[8px] px-1 h-4">Simulación</Badge>
+                              <Badge className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[8px] px-1 h-4">Simulation</Badge>
                             ) : (
-                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] px-1 h-4">Lease Extendido</Badge>
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] px-1 h-4">Lease Extended</Badge>
                             )}
                           </div>
                         </div>
@@ -357,7 +357,7 @@ function AuditoriaContent() {
                     )
                   })()}
 
-                  {/* Nodo 2: Confirmación Humana y Despacho */}
+                  {/* Node 2: Human Confirmation and Dispatch */}
                   {(() => {
                     const isQueryingDispatch = data.relation === 'dispatch_to_detection'
                     const dispatchData = isQueryingDispatch ? data : data.linkedEntity
@@ -374,42 +374,42 @@ function AuditoriaContent() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Badge className="bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[10px] font-mono">
-                                👤 CONFIRMACIÓN Y DESPACHO
+                                👤 CONFIRMATION AND DISPATCH
                               </Badge>
                               <h4 className="text-sm font-bold text-zinc-200">
-                                Operador Defensa Civil
+                                Civil Defense Operator
                               </h4>
                             </div>
                             <span className="text-[10px] text-zinc-500 font-mono">
-                              {payload.dispatchedAt ? new Date(payload.dispatchedAt).toLocaleTimeString('es-AR') : 'Despachado'}
+                              {payload.dispatchedAt ? new Date(payload.dispatchedAt).toLocaleTimeString('en-US') : 'Dispatched'}
                             </span>
                           </div>
 
                           <div className="p-3 rounded-lg bg-black/40 border border-orange-950/15 text-xs text-zinc-300 space-y-1.5 font-mono">
                             <div className="flex justify-between">
-                              <span className="text-zinc-500">Operador Wallet:</span>
+                              <span className="text-zinc-500">Operator Wallet:</span>
                               <span className="text-zinc-400 truncate w-32 text-right select-all" title={payload.operator}>{payload.operator}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-zinc-500">Ubicación Despliegue:</span>
+                              <span className="text-zinc-500">Deployment Location:</span>
                               <span className="text-orange-400 font-sans font-semibold">{payload.ubicacion}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-zinc-500">Severidad de Emergencia:</span>
+                              <span className="text-zinc-500">Emergency Severity:</span>
                               <Badge className={severityColor[payload.severidad] || "bg-zinc-800"}>
                                 {payload.severidad?.toUpperCase()}
                               </Badge>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-zinc-500">Población Afectada:</span>
-                              <span className="text-zinc-300">{payload.afectados ?? payload.personas_afectadas} personas</span>
+                              <span className="text-zinc-500">Affected Population:</span>
+                              <span className="text-zinc-300">{payload.afectados ?? payload.personas_afectadas} people</span>
                             </div>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-3 pt-2 text-[10px] text-zinc-500 font-mono border-t border-zinc-800/40">
-                            <span>Estado: Recursos Desplegados</span>
-                            <span>Key Despacho: <span className="text-orange-400 select-all font-semibold">{(isQueryingDispatch ? inputKey : data.linkedEntity?.key || '').slice(0, 10)}...</span></span>
-                            <span>Vence en bloque: {dispatchData.expiresAtBlock || '999999'}</span>
+                            <span>Status: Resources Deployed</span>
+                            <span>Dispatch Key: <span className="text-orange-400 select-all font-semibold">{(isQueryingDispatch ? inputKey : data.linkedEntity?.key || '').slice(0, 10)}...</span></span>
+                            <span>Expires at block: {dispatchData.expiresAtBlock || '999999'}</span>
                           </div>
                         </div>
                       </div>
@@ -422,9 +422,9 @@ function AuditoriaContent() {
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-6 space-y-4">
                 <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
                   <FileJson className="h-4.5 w-4.5 text-zinc-500" />
-                  {data.payload.action === 'dispatch' ? 'Payload de Despacho Operativo' : 
-                   data.payload.agent ? 'Payload de Detección por Agente de IA' : 
-                   'Payload de Emergencia Decodificado'}
+                  {data.payload.action === 'dispatch' ? 'Operational Dispatch Payload' : 
+                   data.payload.agent ? 'AI Agent Detection Payload' : 
+                   'Decoded Emergency Payload'}
                 </h3>
 
                 {data.payload && typeof data.payload === "object" ? (
@@ -433,7 +433,7 @@ function AuditoriaContent() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {(data.payload.tipo || data.payload.type) && (
                         <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
-                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Tipo de Incidente</p>
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Incident Type</p>
                           <div className="flex items-center gap-1.5">
                             <AlertTriangle className="h-4 w-4 text-zinc-400" />
                             <span className="text-xs font-semibold text-zinc-200">
@@ -444,7 +444,7 @@ function AuditoriaContent() {
                       )}
                       {(data.payload.severidad || data.payload.severity) && (
                         <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
-                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Severidad</p>
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Severity</p>
                           <Badge className={severityColor[data.payload.severidad || data.payload.severity] || "bg-zinc-800"}>
                             {(data.payload.severidad || data.payload.severity).toUpperCase()}
                           </Badge>
@@ -452,7 +452,7 @@ function AuditoriaContent() {
                       )}
                       {data.payload.ubicacion && (
                         <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
-                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Ubicación Registrada</p>
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Registered Location</p>
                           <div className="flex items-center gap-1.5 truncate">
                             <MapPin className="h-4 w-4 text-zinc-400" />
                             <span className="text-xs font-semibold text-zinc-200 truncate" title={data.payload.ubicacion}>
@@ -463,22 +463,22 @@ function AuditoriaContent() {
                       )}
                       {(data.payload.afectados !== undefined || data.payload.affectedPeople !== undefined) && (
                         <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3">
-                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Población Afectada</p>
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Affected Population</p>
                           <div className="flex items-center gap-1.5">
                             <Users className="h-4 w-4 text-zinc-400" />
                             <span className="text-xs font-semibold text-zinc-200">
-                              {data.payload.afectados ?? data.payload.affectedPeople} personas
+                              {data.payload.afectados ?? data.payload.affectedPeople} people
                             </span>
                           </div>
                         </div>
                       )}
                       {(data.payload.timestamp || data.payload.scannedAt || data.payload.dispatchedAt) && (
                         <div className="rounded-lg bg-zinc-950/40 border border-zinc-800 p-3 col-span-1 md:col-span-2">
-                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Timestamp del Registro</p>
+                          <p className="text-[10px] text-zinc-500 uppercase mb-1">Record Timestamp</p>
                           <div className="flex items-center gap-1.5">
                             <Calendar className="h-4 w-4 text-zinc-400" />
                             <span className="text-xs font-mono text-zinc-300">
-                              {new Date(data.payload.timestamp || data.payload.scannedAt || data.payload.dispatchedAt).toLocaleString("es-AR")}
+                              {new Date(data.payload.timestamp || data.payload.scannedAt || data.payload.dispatchedAt).toLocaleString("en-US")}
                             </span>
                           </div>
                         </div>
@@ -488,11 +488,11 @@ function AuditoriaContent() {
                     {/* AI Reasoning card if AI detection but single key */}
                     {data.payload.reasoning && (
                       <div className="text-xs text-purple-300 bg-purple-950/20 border border-purple-900/30 p-3.5 rounded-lg space-y-1.5">
-                        <span className="font-bold text-purple-400 block">Razonamiento del Agente de IA:</span>
+                        <span className="font-bold text-purple-400 block">AI Agent Reasoning:</span>
                         <p className="leading-relaxed">{data.payload.reasoning}</p>
                         {data.payload.suggestedActions && (
                           <div className="pt-2 text-zinc-400">
-                            <span className="font-semibold text-zinc-300 block mb-0.5">Acciones Sugeridas:</span>
+                            <span className="font-semibold text-zinc-300 block mb-0.5">Suggested Actions:</span>
                             <p>{data.payload.suggestedActions}</p>
                           </div>
                         )}
@@ -501,7 +501,7 @@ function AuditoriaContent() {
 
                     {/* Raw JSON viewer */}
                     <div className="space-y-1">
-                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider">JSON Crudo On-Chain</p>
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Raw On-Chain JSON</p>
                       <pre className="font-mono text-xs text-emerald-400/90 bg-black/60 p-4 rounded-lg border border-zinc-800 overflow-x-auto max-h-60 custom-scrollbar">
                         {JSON.stringify(data.payload, null, 2)}
                       </pre>
@@ -509,12 +509,12 @@ function AuditoriaContent() {
                   </div>
                 ) : (
                   <div className="p-4 rounded bg-zinc-950 text-center font-mono text-xs text-zinc-500">
-                    El payload no contiene un formato de datos descriptivo.
+                    The payload does not contain a descriptive data format.
                   </div>
                 )}
 
                 <div className="text-[11px] text-zinc-500 flex items-center justify-between pt-4 border-t border-zinc-800/80 font-mono">
-                  <span>Vence en Bloque: {data.expiresAtBlock || "Infinito"}</span>
+                  <span>Expires at Block: {data.expiresAtBlock || "Infinite"}</span>
                   <span>Namespace: climate-crisis-dashboard</span>
                 </div>
               </div>

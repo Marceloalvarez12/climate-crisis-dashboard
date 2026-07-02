@@ -60,11 +60,11 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
             isSimulated: json.isSimulated,
           })
         } else {
-          setError(json.error || "No se pudo recuperar la información de la blockchain.")
+          setError(json.error || "Could not retrieve information from the blockchain.")
         }
       } catch (err) {
         if (!active) return
-        setError("Error de red al intentar verificar el estado on-chain.")
+        setError("Network error while trying to verify the on-chain status.")
       } finally {
         if (active) setLoading(false)
       }
@@ -80,7 +80,7 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
     return (
       <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 flex flex-col items-center justify-center gap-2 animate-pulse">
         <Loader2 className="h-6 w-6 text-emerald-400 animate-spin" />
-        <p className="text-xs text-emerald-400 font-medium">Verificando firma criptográfica en Braga Testnet...</p>
+        <p className="text-xs text-emerald-400 font-medium">Verifying cryptographic signature on Braga Testnet...</p>
       </div>
     )
   }
@@ -90,7 +90,7 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
       <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 flex flex-col gap-2">
         <div className="flex items-center gap-2 text-red-400">
           <ShieldAlert className="h-5 w-5" />
-          <span className="text-xs font-semibold">Error de Auditoría On-Chain</span>
+          <span className="text-xs font-semibold">On-Chain Audit Error</span>
         </div>
         <p className="text-xs text-muted-foreground">{error}</p>
       </div>
@@ -106,8 +106,8 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
           <div>
-            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Verificación Criptográfica Exitosa</span>
-            <p className="text-[10px] text-muted-foreground">Estado auditado y sellado de forma inmutable</p>
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Cryptographic Verification Successful</span>
+            <p className="text-[10px] text-muted-foreground">Status audited and sealed immutably</p>
           </div>
         </div>
         <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
@@ -117,13 +117,13 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 text-[11px] border-t border-emerald-500/10">
         <div className="space-y-1">
-          <p className="text-[9px] text-muted-foreground uppercase">Despachador (Public Key)</p>
+          <p className="text-[9px] text-muted-foreground uppercase">Dispatcher (Public Key)</p>
           <p className="font-mono text-foreground truncate select-all" title={data?.creator}>
             {data?.creator}
           </p>
         </div>
         <div className="space-y-1">
-          <p className="text-[9px] text-muted-foreground uppercase">Key de la Entidad</p>
+          <p className="text-[9px] text-muted-foreground uppercase">Entity Key</p>
           <p className="font-mono text-foreground truncate select-all" title={arkivKey}>
             {arkivKey}
           </p>
@@ -131,17 +131,17 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
       </div>
 
       <div className="space-y-1 text-[11px]">
-        <p className="text-[9px] text-muted-foreground uppercase">Payload Registrado en Bloque</p>
+        <p className="text-[9px] text-muted-foreground uppercase">Payload Registered on Block</p>
         <pre className="font-mono text-[10px] text-emerald-300 bg-black/40 p-2.5 rounded border border-emerald-500/15 overflow-x-auto max-h-32 custom-scrollbar">
           {JSON.stringify(data?.payload, null, 2)}
         </pre>
       </div>
 
       <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1.5 border-t border-emerald-500/10">
-        <span>Vence en bloque: <strong className="font-mono text-foreground">{data?.expiresAtBlock || 'Infinito'}</strong></span>
+        <span>Expires at block: <strong className="font-mono text-foreground">{data?.expiresAtBlock || 'Infinite'}</strong></span>
         {data?.isSimulated ? (
           <span className="text-yellow-500 font-semibold bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 text-[9px]">
-            Simulado (Local)
+            Simulated (Local)
           </span>
         ) : (
           <a
@@ -150,7 +150,7 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 transition-colors"
           >
-            Ver en Explorador
+            View in Explorer
             <ExternalLink className="h-3 w-3" />
           </a>
         )}
@@ -188,7 +188,7 @@ export function IncidentDetailModal({
         ubicacion: inc.location,
         afectados: inc.affectedPeople,
         timestamp: inc.timestamp ? new Date(inc.timestamp).toISOString() : new Date().toISOString(),
-        resumenIA: inc.sourceDetails?.ai_analysis?.reasoning || inc.sourceDetails?.content || "Análisis no disponible",
+        resumenIA: inc.sourceDetails?.ai_analysis?.reasoning || inc.sourceDetails?.content || "Analysis not available",
       }
       const aiKey = inc.sourceDetails?.ai_analysis?.arkiv_entity_key || inc.sourceDetails?.arkiv_entity_key
       await generateIncidentPdf(pdfData, aiKey, inc.arkiv_key)
@@ -218,12 +218,12 @@ export function IncidentDetailModal({
                     </span>
                     {incident.estado === "atendido" && (
                       <Badge className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25 text-[9px] px-1.5 py-0 border border-emerald-500/30">
-                        Atendido & Auditado
+                        Attended & Audited
                       </Badge>
                     )}
                     {incident.estado === "activo" && (
                       <Badge className="bg-yellow-500/15 text-yellow-400 hover:bg-yellow-500/20 text-[9px] px-1.5 py-0 border border-yellow-500/30 animate-pulse">
-                        Pendiente de Validación
+                        Pending Validation
                       </Badge>
                     )}
                   </div>
@@ -275,12 +275,12 @@ export function IncidentDetailModal({
                       {isGenerating ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Generando...
+                          Generating...
                         </>
                       ) : (
                         <>
                           <FileText className="h-4 w-4" />
-                          Reporte PDF
+                          PDF Report
                         </>
                       )}
                     </Button>
@@ -292,7 +292,7 @@ export function IncidentDetailModal({
                       >
                         <a href={`/auditoria?key=${incident.arkiv_key}`} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4" />
-                          Verificar Portal
+                          Verify Portal
                         </a>
                       </Button>
                     )}
@@ -302,7 +302,7 @@ export function IncidentDetailModal({
                 <div className="flex flex-col gap-2">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 cursor-pointer" onClick={onOpenDeploy}>
                     <Truck className="h-5 w-5 mr-2" />
-                    {incident.source === "social" ? "Confirmar Incidente" : "Despliegue de Recursos"}
+                    {incident.source === "social" ? "Confirm Incident" : "Resource Deployment"}
                   </Button>
                 </div>
               )}
@@ -343,7 +343,7 @@ function SourceDetail({ incident }: { incident: Incident }) {
         </p>
         {sd.imageUrl && (
           <div className="relative h-[140px] w-full rounded-lg overflow-hidden bg-zinc-950 border border-border/40">
-            <img src={sd.imageUrl} alt="Imagen del incidente" className="absolute inset-0 w-full h-full object-contain" />
+            <img src={sd.imageUrl} alt="Incident image" className="absolute inset-0 w-full h-full object-contain" />
             <div className="absolute bottom-2 right-2 z-10">
               <Badge className="bg-black/70 text-white text-[10px]">Image attached to tweet</Badge>
             </div>
@@ -383,7 +383,7 @@ function SourceDetail({ incident }: { incident: Incident }) {
       <p className="text-xs text-muted-foreground">Location: {sd.cameraLocation}</p>
       {sd.imageUrl && (
         <div className="relative h-[140px] w-full rounded-lg overflow-hidden bg-zinc-950 border border-border/40">
-          <img src={sd.imageUrl} alt="Captura de cámara" className="absolute inset-0 w-full h-full object-contain" />
+          <img src={sd.imageUrl} alt="Camera capture" className="absolute inset-0 w-full h-full object-contain" />
           <div className="absolute top-2 left-2 z-10">
             <Badge className="bg-red-500/90 text-white text-[10px] animate-pulse">LIVE</Badge>
           </div>

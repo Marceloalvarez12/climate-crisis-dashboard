@@ -19,7 +19,7 @@ const ALERT_INCIDENT: Incident = {
   sourceDetails: {
     platform: "X (Twitter)",
     username: "@rescate_tucuman",
-    content: "ACTUALIZACION: Canal San Pablo completamente desbordado en altura de calle Honduras. Evacuacion de 180 familias en curso. Bomberos Voluntarios y Defensa Civil trabajando. Corte total de Av. Ejercito del Norte. Eviten la zona. #AlertaTucuman",
+    content: "UPDATE: Canal San Pablo completely overflowed at the height of Honduras street. Evacuation of 180 families in progress. Bomberos Voluntarios and Civil Defense working. Total closure of Av. Ejercito del Norte. Avoid the area. #AlertaTucuman",
     imageUrl: "https://images.unsplash.com/photo-1446824505046-e43605ffb17f?w=600&h=400&fit=crop",
   },
 }
@@ -76,10 +76,10 @@ export function LiveAlert({ onDismiss, onDeployEmergency }: LiveAlertProps) {
             </div>
             <div>
               <h2 className="text-lg font-bold text-red-400 flex items-center gap-2">
-                ALERTA EN TIEMPO REAL
+                LIVE ALERT
                 <span className="inline-flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
               </h2>
-              <p className="text-xs text-red-300/70">Incidente detectado hace {secondsAgo}s</p>
+              <p className="text-xs text-red-300/70">Incident detected {secondsAgo}s ago</p>
             </div>
           </div>
           <Button
@@ -98,9 +98,9 @@ export function LiveAlert({ onDismiss, onDeployEmergency }: LiveAlertProps) {
           <div className="flex items-center gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
             <AlertTriangle className="h-10 w-10 text-red-500 shrink-0" />
             <div>
-              <h3 className="font-bold text-foreground">DESBORDE DE CANAL NORTE</h3>
+              <h3 className="font-bold text-foreground">NORTH CANAL OVERFLOW</h3>
               <p className="text-sm text-muted-foreground">
-                Nivel de agua critico detectado. Evacuacion inmediata requerida.
+                Critical water level detected. Immediate evacuation required.
               </p>
             </div>
           </div>
@@ -109,17 +109,17 @@ export function LiveAlert({ onDismiss, onDeployEmergency }: LiveAlertProps) {
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 rounded-lg bg-muted/50 border border-border text-center">
               <MapPin className="h-5 w-5 text-red-400 mx-auto mb-1" />
-              <p className="text-[10px] text-muted-foreground">Ubicacion</p>
+              <p className="text-[10px] text-muted-foreground">Location</p>
               <p className="text-xs font-semibold">San Pablo</p>
             </div>
             <div className="p-3 rounded-lg bg-muted/50 border border-border text-center">
               <Users className="h-5 w-5 text-orange-400 mx-auto mb-1" />
-              <p className="text-[10px] text-muted-foreground">En Riesgo</p>
-              <p className="text-xs font-semibold">~720 personas</p>
+              <p className="text-[10px] text-muted-foreground">At Risk</p>
+              <p className="text-xs font-semibold">~720 people</p>
             </div>
             <div className="p-3 rounded-lg bg-muted/50 border border-border text-center">
               <Clock className="h-5 w-5 text-yellow-400 mx-auto mb-1" />
-              <p className="text-[10px] text-muted-foreground">Tiempo Est.</p>
+              <p className="text-[10px] text-muted-foreground">Est. Time</p>
               <p className="text-xs font-semibold">15 min</p>
             </div>
           </div>
@@ -127,10 +127,10 @@ export function LiveAlert({ onDismiss, onDeployEmergency }: LiveAlertProps) {
           {/* Source */}
           <div className="p-2 rounded bg-muted/30 border border-border/50">
             <p className="text-[10px] text-muted-foreground">
-              <span className="text-purple-400 font-medium">Fuente:</span> Sensor FL-CN-001 + Camara CAM-SP-012 + 12 reportes en X
+              <span className="text-purple-400 font-medium">Source:</span> Sensor FL-CN-001 + Camera CAM-SP-012 + 12 reports on X
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              <span className="text-purple-400 font-medium">Confianza IA:</span> 97%
+              <span className="text-purple-400 font-medium">AI Confidence:</span> 97%
             </p>
           </div>
 
@@ -143,14 +143,14 @@ export function LiveAlert({ onDismiss, onDeployEmergency }: LiveAlertProps) {
               }}
             >
               <Siren className="h-4 w-4 mr-2" />
-              DESPLEGAR EMERGENCIA
+              DEPLOY EMERGENCY
             </Button>
             <Button 
               variant="outline" 
               className="border-red-500/50 text-red-400 hover:bg-red-500/10"
               onClick={handleDismiss}
             >
-              Ver en Mapa
+              View on Map
             </Button>
           </div>
         </div>

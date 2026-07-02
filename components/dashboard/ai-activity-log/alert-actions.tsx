@@ -16,7 +16,7 @@ import {
 import type { ActivityItem } from "./types"
 
 // ---------------------------------------------------------------------------
-// Botones de acción sobre una alerta (Desplegar / Notificar / Descartar)
+// Action buttons for an alert (Deploy / Notify / Dismiss)
 // ---------------------------------------------------------------------------
 
 interface AlertActionsProps {
@@ -60,7 +60,7 @@ export function AlertActions({ activity, onDeploy, onNotify, onDismiss }: AlertA
 }
 
 // ---------------------------------------------------------------------------
-// Dialog de confirmación para desplegar / notificar
+// Confirmation dialog for deploy / notify
 // ---------------------------------------------------------------------------
 
 interface ConfirmDialogState {

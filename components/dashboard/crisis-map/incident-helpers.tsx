@@ -2,7 +2,7 @@ import { Droplets, Flame, Wind, AlertTriangle, Twitter, Thermometer, Camera, Sto
 import type { IncidentType, IncidentSource } from "@/lib/types"
 
 // ---------------------------------------------------------------------------
-// Icono según tipo de incidente
+// Icon by incident type
 // ---------------------------------------------------------------------------
 
 export function IncidentIcon({ type }: { type: IncidentType }) {
@@ -18,7 +18,7 @@ export function IncidentIcon({ type }: { type: IncidentType }) {
 }
 
 // ---------------------------------------------------------------------------
-// Clase CSS de color según severidad
+// CSS color class by severity
 // ---------------------------------------------------------------------------
 
 export function severityColorClass(severity: string): string {
@@ -31,7 +31,7 @@ export function severityColorClass(severity: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Color hexadecimal según severidad (para el marcador Leaflet)
+// Hex color by severity (for Leaflet marker)
 // ---------------------------------------------------------------------------
 
 export function severityHex(severity: string): string {
@@ -44,7 +44,7 @@ export function severityHex(severity: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Icono / etiqueta de fuente
+// Source icon / label
 // ---------------------------------------------------------------------------
 
 export function SourceIcon({ source }: { source: IncidentSource }) {
@@ -64,7 +64,7 @@ export function sourceLabel(source: IncidentSource): string {
 }
 
 // ---------------------------------------------------------------------------
-// Tipo → etiqueta en español
+// Type -> English label
 // ---------------------------------------------------------------------------
 
 export function incidentTypeLabel(type: IncidentType): string {

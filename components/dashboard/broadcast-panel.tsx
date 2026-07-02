@@ -42,7 +42,7 @@ interface BroadcastChannel {
 
 const defaultMessage = `EMERGENCY ALERT - Civil Defense Tucumán
 
-The population of Centro Histórico, San Pablo and Barrio Sur is hereby informed:
+The population of Historic Center, San Pablo and Barrio Sur is hereby informed:
 
 - Active flooding in the area
 - Preventive evacuation recommended
@@ -50,7 +50,7 @@ The population of Centro Histórico, San Pablo and Barrio Sur is hereby informed
 
 Meeting points:
 - Estadio Monumental (Yerba Buena)
-- Plaza Urquiza (Centro)
+- Plaza Urquiza (Center)
 
 Emergency line: 103
 More info: @DefensaCivilTuc`
@@ -115,7 +115,7 @@ export function BroadcastPanel() {
     ))
     setShowMessageDialog(false)
 
-    // Simular envio
+    // Simulate sending
     await new Promise(resolve => setTimeout(resolve, 2000))
 
     setChannels(prev => prev.map(ch => 
@@ -146,8 +146,8 @@ export function BroadcastPanel() {
     setGeneratingPdf(true)
     try {
       generateGeneralReport(incidents || [], historicalIncidents || [], recursos || [], analytics || {})
-      toast.success("Planilla Operativa descargada", {
-        description: `Planilla_Operativa_Tucuman_${new Date().toISOString().slice(0, 10)}.pdf`,
+      toast.success("Operational report downloaded", {
+        description: `Operational_Report_Tucuman_${new Date().toISOString().slice(0, 10)}.pdf`,
       })
     } catch (err) {
       console.error("Error generating PDF:", err)
@@ -221,7 +221,7 @@ export function BroadcastPanel() {
                 ) : (
                   <>
                     <Send className="h-3 w-3 mr-1" />
-                    Enviar
+                    Send
                   </>
                 )}
               </Button>
@@ -237,7 +237,7 @@ export function BroadcastPanel() {
               onClick={handleGeneratePdf}
             >
               <FileText className="h-3.5 w-3.5 text-red-400" />
-              Descargar Planilla Operativa (PDF)
+              Download Operational Report (PDF)
             </Button>
             <Button
               variant="outline"
@@ -297,31 +297,31 @@ export function BroadcastPanel() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-red-400" />
-              Planilla Operativa
+              Operational Report
             </DialogTitle>
           </DialogHeader>
           
           {generatingPdf ? (
             <div className="py-8 flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Generando planilla operativa...</p>
-              <p className="text-xs text-muted-foreground">Compilando incidentes, recursos y hashes Arkiv</p>
+              <p className="text-sm text-muted-foreground">Generating operational report...</p>
+              <p className="text-xs text-muted-foreground">Compiling incidents, resources and Arkiv hashes</p>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                <p className="text-xs font-medium">Planilla_Operativa_Tucuman_{new Date().toISOString().slice(0, 10)}.pdf</p>
+                <p className="text-xs font-medium">Operational_Report_Tucuman_{new Date().toISOString().slice(0, 10)}.pdf</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Incluye: Hora de deteccion de incidentes, recursos desplegados con hora de despacho, hashes de blockchain Arkiv y resumen operativo.
+                  Includes: Incident detection time, deployed resources with dispatch time, Arkiv blockchain hashes and operational summary.
                 </p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowPdfDialog(false)}>
-                  Cancelar
+                  Cancel
                 </Button>
                 <Button className="flex-1 gap-1" onClick={handleDownloadPdf}>
                   <FileText className="h-4 w-4" />
-                  Descargar PDF
+                  Download PDF
                 </Button>
               </div>
             </div>

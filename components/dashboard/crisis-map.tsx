@@ -150,7 +150,7 @@ export function CrisisMap() {
   const handleConfirmDeploymentTransition = () => {
     const totalSelected = Object.values(selectedCounts).reduce((a, b) => a + b, 0)
     if (totalSelected === 0) {
-      toast.error("Seleccione al menos un recurso para desplegar")
+      toast.error("Select at least one resource to deploy")
       return
     }
     setShowDeployModal(false)
@@ -167,7 +167,7 @@ export function CrisisMap() {
   const handleDeployResources = async () => {
     const totalSelected = Object.values(selectedCounts).reduce((a, b) => a + b, 0)
     if (totalSelected === 0) {
-      toast.error("Seleccione al menos un recurso para desplegar")
+      toast.error("Select at least one resource to deploy")
       return
     }
 
@@ -176,7 +176,7 @@ export function CrisisMap() {
       g.availableIds.slice(0, selectedCounts[g.tipo] ?? 0)
     )
 
-    // Optimistic update en cache
+    // Optimistic update in cache
     if (dbRecursos) {
       mutateRecursos(
         dbRecursos.map((r: DbIncident & { estado: string }) => idsToDispatch.includes(r.id) ? { ...r, estado: "dispatched" } : r),
@@ -194,14 +194,14 @@ export function CrisisMap() {
       mutate("/api/incidentes?estado=atendido")
       mutate("/api/analytics")
 
-      // Despachar recursos con ciclo de vida
+      // Dispatch resources with lifecycle
       await Promise.all(
         idsToDispatch.map((id) => dispatchResourceWithLifecycle(incidenteId, id, () => mutateRecursos()).catch((err) => console.error("[CrisisMap] Error dispatching resource:", err)))
       )
       await mutateRecursos()
     }
 
-    // Respawn 90s después — stored in ref for cleanup on unmount
+    // Respawn 90s later — stored in ref for cleanup on unmount
     if (incidenteId) {
       const incidenteTipo  = selectedIncident?.type
       const incidenteFuente = selectedIncident?.source
@@ -299,7 +299,7 @@ export function CrisisMap() {
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/20"
               )}
             >
-              Activos ({viewMode === "activo" ? filteredIncidents.length : 0})
+              Active ({viewMode === "activo" ? filteredIncidents.length : 0})
             </button>
             <button
               onClick={() => setViewMode("atendido")}
@@ -310,12 +310,12 @@ export function CrisisMap() {
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/20"
               )}
             >
-              Historial ({viewMode === "atendido" ? filteredIncidents.length : 0})
+              History ({viewMode === "atendido" ? filteredIncidents.length : 0})
             </button>
           </div>
           <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/10">
             <p className="text-[9px] font-medium text-muted-foreground">
-              {viewMode === "activo" ? "Monitoreo en Tiempo Real" : "Auditoría On-Chain Braga"}
+              {viewMode === "activo" ? "Real-Time Monitoring" : "On-Chain Audit Trail"}
             </p>
             {viewMode === "activo" ? (
               <Badge variant="outline" className="text-[8px] h-4 border-primary/50 text-primary animate-pulse px-1.5">LIVE</Badge>
@@ -329,7 +329,7 @@ export function CrisisMap() {
         </div>
         <div className="overflow-y-auto max-h-48 p-2 space-y-1.5 custom-scrollbar md:max-h-[350px]">
           {filteredIncidents.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground text-center py-4">No hay incidentes para mostrar</p>
+            <p className="text-[10px] text-muted-foreground text-center py-4">No incidents to display</p>
           ) : (
             filteredIncidents.map((incident) => (
               <button
@@ -370,7 +370,7 @@ export function CrisisMap() {
                       <Badge variant="outline" className="text-[9px] h-4 px-1">
                         {incidentTypeLabel(incident.type)}
                       </Badge>
-                      <span className="text-[9px] text-muted-foreground">{incident.affectedPeople} afectados</span>
+                      <span className="text-[9px] text-muted-foreground">{incident.affectedPeople} affected</span>
                     </div>
                   </div>
                 </div>
@@ -433,7 +433,7 @@ export function CrisisMap() {
 
       <Dialog open={showBlockchainModal} onOpenChange={handleCloseConfirmDispatch}>
         <DialogContent className="max-w-md p-0 bg-transparent border-none z-[9999]">
-          <DialogTitle className="sr-only">Desplegar Recursos</DialogTitle>
+          <DialogTitle className="sr-only">Deploy Resources</DialogTitle>
           {selectedIncident && (
             <IncidentDispatchCard
               incident={{
