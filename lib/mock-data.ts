@@ -268,6 +268,21 @@ export const CAMERA_REPORTS: CameraReport[] = [
   },
 ]
 
+export interface CitizenReport {
+  tipo: IncidentTipo
+  severidad: IncidentSeveridad
+  zona: { lat: number; lng: number; nombre: string }
+  descripcion?: string
+}
+
+export const CITIZEN_REPORTS: CitizenReport[] = [
+  { tipo: "flood", severidad: "high", zona: { lat: -26.8241, lng: -65.2226, nombre: "Av. Aconquija y Muñecas" }, descripcion: "Calle inundada, agua llega a los tobillos" },
+  { tipo: "fire", severidad: "critical", zona: { lat: -26.8299, lng: -65.2178, nombre: "Av. Sarmiento 1234" }, descripcion: "Humo saliendo de un garage, posible incendio" },
+  { tipo: "storm", severidad: "high", zona: { lat: -26.8156, lng: -65.2099, nombre: "Av. Mate de Luna y Lamadrid" }, descripcion: "Poste de luz caido, transito cortado" },
+  { tipo: "accident", severidad: "medium", zona: { lat: -26.8355, lng: -65.2022, nombre: "Av. 24 de Septiembre y Congreso" }, descripcion: "Choque entre auto y moto" },
+  { tipo: "general", severidad: "low", zona: { lat: -26.8212, lng: -65.2145, nombre: "Parque Avellaneda" }, descripcion: "Gente varada bajo la lluvia" },
+]
+
 // ---------------------------------------------------------------------------
 // Zonas y helpers para incidentes generados dinamicamente (respawn)
 // ---------------------------------------------------------------------------
@@ -335,6 +350,7 @@ export function buildRespawnIncident(base?: { tipo?: string; fuente?: string; zo
 
   // Inject mock AI blockchain audit keys to respawned incidents
   fuente_detalles.arkiv_entity_key = simulatedHash
+  fuente_detalles.simulated = true
   fuente_detalles.ai_analysis = {
     reasoning: `Análisis automático del incidente de ${tipo} en la zona de ${zona}. Coordenadas validadas por satélite.`,
     suggestedActions: ["Desplegar unidades de respuesta inmediata", "Notificar a Defensa Civil"],
@@ -374,12 +390,11 @@ export const STATIC_RESPONSE_TIME_MIN = 18
  * Compartidos por use-resource-lifecycle.ts y use-simulation-loop.ts
  * para garantizar consistencia entre despacho manual y simulacion.
  *
- * Flujo: available → dispatched (20s) → busy (20s) → available
- * Calibrados para un simulador tipo "demo en vivo": lo suficiente para
- * ver la animación sin aburrir al usuario.
+ * Flujo: available -> dispatched (2 min) -> busy (3 min) -> available
+ * Tiempos realistas para operaciones de respuesta de emergencia.
  */
-export const RESOURCE_DISPATCHED_TO_BUSY_MS  = 20_000
-export const RESOURCE_BUSY_TO_AVAILABLE_MS   = 20_000
+export const RESOURCE_DISPATCHED_TO_BUSY_MS  = 120_000
+export const RESOURCE_BUSY_TO_AVAILABLE_MS   = 180_000
 
 /** Intervalo entre spawns de incidentes en la simulacion automatica */
 export const SIMULATION_SPAWN_INTERVAL_MS = 90_000

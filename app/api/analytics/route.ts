@@ -22,6 +22,7 @@ export async function GET() {
     const incidents48h = (allResult.data || []).filter(i => i.created_at >= since48h && i.created_at < since24h)
     const allResources = recursosResult.data || []
 
+    const citizenCount = active.filter(i => i.fuente === "citizen").length
     const affectedNow = active.reduce((s, i) => s + (i.personas_afectadas || 0), 0)
     const prev24Active = incidents48h.filter(i => i.estado === "activo")
     const affectedPrev = prev24Active.reduce((s, i) => s + (i.personas_afectadas || 0), 0)
@@ -59,6 +60,7 @@ export async function GET() {
       highCount,
       mediumCount,
       lowCount,
+      citizenCount,
       affectedNow,
       affectedChange,
       avgResponseMin,

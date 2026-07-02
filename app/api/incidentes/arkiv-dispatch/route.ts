@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server"
 import { IncidentService } from "@/lib/services/incident-service"
 import { ArkivService, type DispatchPayload } from "@/lib/services/arkiv-service"
+import { StellarService } from "@/lib/services/stellar-service"
 import { apiSuccess, apiError } from "@/lib/services/api-response"
 import { CONFIG } from "@/lib/config"
 import type { EmergencyIncident, ArkivDispatchResponse } from "@/lib/types"
+import * as crypto from "crypto"
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
@@ -15,7 +17,9 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     await updateIncidentInDb(incidente, entityKey, isSimulated, isLeaseExtended)
 
-    const response: ArkivDispatchResponse = { success: true, entityKey }
+    const stellarAudit = await attachStellarAudit(incidente)
+
+    const response: ArkivDispatchResponse = { success: true, entityKey, stellarAudit }
     return apiSuccess(response)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to dispatch"
@@ -94,4 +98,69 @@ async function updateIncidentInDb(
     fuente_detalles: updatedDetails,
     estado: "atendido",
   })
+}
+
+async function attachStellarAudit(
+  incidente: EmergencyIncident & { arkivKey?: string }
+): Promise<Record<string, unknown>> {
+  try {
+    const existing = await IncidentService.findById(incidente.id)
+    const zkProof = (existing?.fuente_detalles?.zk_proof as { a?: string; b?: string; c?: string }) || null
+    const zkPubSignals = (existing?.fuente_detalles?.zk_public_signals as string[]) || null
+
+    if (zkProof?.a && zkProof?.b && zkProof?.c && zkPubSignals) {
+      const verifyResult = await StellarService.verifyProof({
+        proof: zkProof as { a: string; b: string; c: string },
+        pubSignals: zkPubSignals,
+      })
+
+      const journalContent = `${incidente.id}:${zkPubSignals.join(":")}`
+      const { entry, journalDigest } = StellarService.buildAuditFromIncident(
+        incidente.id,
+        zkProof as { a: string; b: string; c: string },
+        zkPubSignals,
+        journalContent
+      )
+
+      const audit = {
+        ...entry,
+        verified: verifyResult.valid,
+        journalDigest,
+        dispatchedAt: new Date().toISOString(),
+      }
+
+      const details = existing?.fuente_detalles || {}
+      await IncidentService.update(incidente.id, {
+        fuente_detalles: {
+          ...details,
+          stellar_audit: audit,
+        },
+      })
+
+      return audit
+    }
+
+    // Fallback: simulated audit for legacy incidents without ZK proof
+    const content = (existing?.fuente_detalles?.content as string) || `${incidente.tipo}:${incidente.ubicacion}:${incidente.timestamp}`
+    const journalDigest = crypto.createHash("sha256").update(content).digest("hex")
+    const simulatedProof = {
+      a: "0".repeat(128),
+      b: "0".repeat(256),
+      c: "0".repeat(128),
+    }
+    const { entry } = StellarService.buildAuditFromIncident(incidente.id, simulatedProof, [], content)
+
+    const audit = {
+      ...entry,
+      verified: false,
+      journalDigest,
+      isSimulated: true,
+      dispatchedAt: new Date().toISOString(),
+    }
+
+    return audit
+  } catch (err) {
+    console.warn("[Stellar Audit] Failed to attach:", err)
+    return { error: err instanceof Error ? err.message : "Stellar audit failed", isSimulated: true }
+  }
 }

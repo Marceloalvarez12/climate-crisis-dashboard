@@ -48,6 +48,35 @@ export async function createIncidente(body: Record<string, unknown>) {
 }
 
 // ---------------------------------------------------------------------------
+// ZK Citizen Reports
+// ---------------------------------------------------------------------------
+
+export async function createZkCitizenReport(payload: {
+  lat: number
+  lng: number
+  tipo: string
+  severidad: string
+  ubicacion: string
+  personasAfectadas: number
+  descripcion?: string
+}) {
+  const res = await fetch("/api/incidentes/zk-report", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...payload,
+      zoneHash: 12345,
+      minLat: -27,
+      maxLat: -26.5,
+      minLng: -65.5,
+      maxLng: -65,
+    }),
+  })
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+  return res.json() as Promise<{ incident: DbIncident; verified: boolean; contractId?: string; explorerUrl?: string }>
+}
+
+// ---------------------------------------------------------------------------
 // Recursos
 // ---------------------------------------------------------------------------
 

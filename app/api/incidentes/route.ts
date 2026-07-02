@@ -74,3 +74,24 @@ export async function PATCH(request: NextRequest) {
     return apiError(String(err))
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, estado, simulated } = body
+
+    if (id) {
+      await IncidentService.deleteById(id)
+      return apiSuccess({ deleted: id })
+    }
+
+    if (simulated) {
+      await IncidentService.deleteSimulated(estado)
+      return apiSuccess({ cleaned: true })
+    }
+
+    return apiValidationError({ formErrors: ["Se requiere id o simulated=true"], fieldErrors: {} })
+  } catch (err) {
+    return apiError(String(err))
+  }
+}

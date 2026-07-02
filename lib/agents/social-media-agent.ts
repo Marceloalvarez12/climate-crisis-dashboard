@@ -24,6 +24,7 @@ import { XConnector }        from "./connectors/x-connector"
 import { FacebookConnector } from "./connectors/facebook-connector"
 import { InstagramConnector } from "./connectors/instagram-connector"
 import { GeminiAnalyzer }    from "./gemini-analyzer"
+import { LlmAnalyzer }       from "./llm-analyzer"
 import { supabase }          from "@/lib/supabase"
 import type { SocialConnector, ConnectorOptions } from "./connectors/base"
 import type { AgentScanResult, GeminiAnalysis, SocialPost } from "./types"
@@ -83,7 +84,7 @@ const DEFAULT_COORDS = { lat: -26.8241, lng: -65.2226 }
 
 export class SocialMediaAgent {
   private readonly connectors: SocialConnector[]
-  private readonly analyzer:   GeminiAnalyzer
+  private readonly analyzer:   LlmAnalyzer
 
   constructor() {
     // Registrar todos los conectores — se usan sólo los que están configurados
@@ -94,7 +95,7 @@ export class SocialMediaAgent {
       new MockConnector(),        // siempre disponible como fallback
     ]
 
-    this.analyzer = new GeminiAnalyzer()
+    this.analyzer = new LlmAnalyzer()
   }
 
   /**
