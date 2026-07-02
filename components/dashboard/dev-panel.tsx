@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   Play, Square, Zap, X, Terminal, Cpu, Database,
   Ambulance, Shield, Truck, CheckCircle2, AlertTriangle,
-  Flame, Droplets, Wind, MapPin, Clock
+  Flame, Droplets, Wind, MapPin, Clock, Users, Trash2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,23 +14,25 @@ import { cn } from "@/lib/utils"
 import { useSimulationLoop, ActiveDispatch, SimulationEvent } from "@/hooks/use-simulation-loop"
 
 const eventIcon = (type: SimulationEvent["type"]) => {
-  switch (type) {
-    case "incident_created":    return <AlertTriangle className="h-3 w-3 text-accent" />
-    case "resource_dispatched": return <Truck className="h-3 w-3 text-blue-400" />
-    case "resource_arrived":    return <MapPin className="h-3 w-3 text-yellow-400" />
-    case "incident_resolved":   return <CheckCircle2 className="h-3 w-3 text-green-400" />
-    case "incident_respawned":  return <Zap className="h-3 w-3 text-primary" />
-  }
+switch (type) {
+  case "incident_created":    return <AlertTriangle className="h-3 w-3 text-accent" />
+  case "citizen_zk_report":   return <Users className="h-3 w-3 text-indigo-400" />
+  case "resource_dispatched": return <Truck className="h-3 w-3 text-blue-400" />
+  case "resource_arrived":    return <MapPin className="h-3 w-3 text-yellow-400" />
+  case "incident_resolved":   return <CheckCircle2 className="h-3 w-3 text-green-400" />
+  case "incident_respawned":  return <Zap className="h-3 w-3 text-primary" />
+}
 }
 
 const eventColor = (type: SimulationEvent["type"]) => {
-  switch (type) {
-    case "incident_created":    return "text-accent"
-    case "resource_dispatched": return "text-blue-400"
-    case "resource_arrived":    return "text-yellow-400"
-    case "incident_resolved":   return "text-green-400"
-    case "incident_respawned":  return "text-primary"
-  }
+switch (type) {
+  case "incident_created":    return "text-accent"
+  case "citizen_zk_report":   return "text-indigo-400"
+  case "resource_dispatched": return "text-blue-400"
+  case "resource_arrived":    return "text-yellow-400"
+  case "incident_resolved":   return "text-green-400"
+  case "incident_respawned":  return "text-primary"
+}
 }
 
 function DispatchCard({ dispatch, onDispatch }: {
@@ -71,7 +73,7 @@ function DispatchCard({ dispatch, onDispatch }: {
               : "border-green-500/50 text-green-400"
           )}
         >
-          {dispatch.status === "en_camino" ? "En camino" : "Ocupado"}
+          {dispatch.status === "en_camino" ? "On the way" : "Busy"}
         </Badge>
       </div>
       <p className="text-[10px] text-muted-foreground font-mono truncate">
@@ -107,7 +109,24 @@ export function DevPanel() {
     startSimulation,
     stopSimulation,
     dispatchResource,
+    spawnCitizenZkReport,
+    cleanupSimulatedIncidents,
   } = useSimulationLoop()
+
+  const [isInjecting, setIsInjecting] = useState(false)
+  const [isCleaning, setIsCleaning] = useState(false)
+
+  const handleInjectCitizenZk = async () => {
+    setIsInjecting(true)
+    await spawnCitizenZkReport()
+    setIsInjecting(false)
+  }
+
+  const handleCleanup = async () => {
+    setIsCleaning(true)
+    await cleanupSimulatedIncidents()
+    setIsCleaning(false)
+  }
 
   if (!isDev) return null
 
@@ -133,10 +152,10 @@ export function DevPanel() {
               <div className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
             )}
           </div>
-          <span className="text-sm font-mono font-semibold text-cyan-400">SIMULACION</span>
+          <span className="text-sm font-mono font-semibold text-cyan-400">SIMULATION</span>
           {isRunning && (
             <Badge variant="outline" className="h-4 border-green-500/40 bg-green-500/10 px-1.5 text-[9px] font-mono text-green-400">
-              ACTIVA
+              ACTIVE
             </Badge>
           )}
         </div>
@@ -158,6 +177,26 @@ export function DevPanel() {
           </div>
         </div>
 
+        <Button
+          onClick={handleInjectCitizenZk}
+          disabled={isInjecting}
+          className="w-full border-indigo-500/50 bg-indigo-500/10 font-mono text-indigo-400 hover:bg-indigo-500/20 text-xs"
+          variant="outline"
+        >
+          <Users className="mr-2 h-3.5 w-3.5" />
+          {isInjecting ? "Generating proof..." : "Inject citizen ZK report"}
+        </Button>
+
+        <Button
+          onClick={handleCleanup}
+          disabled={isCleaning}
+          className="w-full border-red-500/50 bg-red-500/10 font-mono text-red-400 hover:bg-red-500/20 text-xs"
+          variant="outline"
+        >
+          <Trash2 className="mr-2 h-3.5 w-3.5" />
+          {isCleaning ? "Cleaning..." : "Clean simulated"}
+        </Button>
+
         {/* Start / Stop button */}
         {!isRunning ? (
           <Button
@@ -166,7 +205,7 @@ export function DevPanel() {
             variant="outline"
           >
             <Play className="mr-2 h-4 w-4" />
-            Iniciar Simulacion Dinamica
+            Start Dynamic Simulation
           </Button>
         ) : (
           <Button
@@ -175,7 +214,7 @@ export function DevPanel() {
             variant="outline"
           >
             <Square className="mr-2 h-4 w-4" />
-            Detener Simulacion
+            Stop Simulation
           </Button>
         )}
 
@@ -183,7 +222,7 @@ export function DevPanel() {
         {activeDispatches.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-              Despachos activos ({activeDispatches.length})
+              Active dispatches ({activeDispatches.length})
             </p>
             {activeDispatches.map(d => (
               <DispatchCard
@@ -214,7 +253,7 @@ export function DevPanel() {
                 variant="outline"
               >
                 <Ambulance className="mr-2 h-3.5 w-3.5" />
-                Enviar recurso al incidente
+                Send resource to incident
               </Button>
             )
           })()
@@ -224,7 +263,7 @@ export function DevPanel() {
         {events.length > 0 && (
           <div className="space-y-1">
             <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-              Log de eventos
+              Event log
             </p>
             <ScrollArea className="h-36">
               <div className="space-y-1 pr-2">
@@ -236,7 +275,7 @@ export function DevPanel() {
                         {e.message}
                       </p>
                       <p className="text-[9px] font-mono text-muted-foreground">
-                        {e.timestamp.toLocaleTimeString("es-AR")}
+                        {e.timestamp.toLocaleTimeString("en-US")}
                       </p>
                     </div>
                   </div>
@@ -248,7 +287,7 @@ export function DevPanel() {
 
         <div className="border-t border-cyan-500/10 pt-2 flex justify-between">
           <span className="text-[10px] font-mono text-muted-foreground">
-            Ciclo: <span className="text-cyan-400">90s spawn / 15s camino / 20s busy</span>
+            Cycle: <span className="text-cyan-400">90s spawn / 15s travel / 20s busy</span>
           </span>
           <span className="text-[10px] font-mono text-muted-foreground">?dev=true</span>
         </div>

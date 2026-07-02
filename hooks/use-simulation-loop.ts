@@ -7,18 +7,23 @@ import {
   SOCIAL_REPORTS,
   CAMERA_REPORTS,
   SENSOR_REPORTS,
+  CITIZEN_REPORTS,
   RESOURCE_DISPATCHED_TO_BUSY_MS,
   RESOURCE_BUSY_TO_AVAILABLE_MS,
   SIMULATION_SPAWN_INTERVAL_MS,
 } from "@/lib/mock-data"
-import { createIncidente, fetchRecursos, patchRecurso, patchIncidente } from "@/lib/api"
+import { createIncidente, fetchRecursos, patchRecurso, patchIncidente, createZkCitizenReport } from "@/lib/api"
+
+const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || ""
+const MAX_ACTIVE_SIMULATED_INCIDENTS = 5
+const AUTO_RESOLVE_UNATTENDED_MS = 120_000
 
 // ---------------------------------------------------------------------------
 // Tipos exportados
 // ---------------------------------------------------------------------------
 
 export interface SimulationEvent {
-  type: "incident_created" | "resource_dispatched" | "resource_arrived" | "incident_resolved" | "incident_respawned"
+  type: "incident_created" | "resource_dispatched" | "resource_arrived" | "incident_resolved" | "incident_respawned" | "citizen_zk_report"
   message: string
   timestamp: Date
   incidentId?: string
@@ -60,9 +65,7 @@ const INCIDENT_TEMPLATES = [
   })),
 ]
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+const CITIZEN_REPORT_CHANCE = 0.3
 
 export function useSimulationLoop() {
   const { mutate } = useSWRConfig()
@@ -77,8 +80,96 @@ export function useSimulationLoop() {
     setEvents((prev) => [{ ...event, timestamp: new Date() }, ...prev].slice(0, 20))
   }, [])
 
-  // Crea un nuevo incidente en Supabase
+  const spawnCitizenZkReport = useCallback(async () => {
+    const report = CITIZEN_REPORTS[Math.floor(Math.random() * CITIZEN_REPORTS.length)]
+    try {
+      const data = await createZkCitizenReport({
+        lat: report.zona.lat,
+        lng: report.zona.lng,
+        tipo: report.tipo,
+        severidad: report.severidad,
+        ubicacion: report.zona.nombre,
+        personasAfectadas: 0,
+        descripcion: report.descripcion,
+      })
+      mutate("/api/incidentes?estado=activo")
+      mutate("/api/incidentes?estado=atendido")
+      mutate("/api/analytics")
+      addEvent({ type: "citizen_zk_report", message: `Reporte ciudadano ZK en ${data.incident.ubicacion}`, incidentId: data.incident.id })
+
+      // Auto-resolución de reportes ciudadanos ZK no atendidos
+      const autoResolveTimer = setTimeout(async () => {
+        try {
+          const current = await fetch(`/api/incidentes/${data.incident.id}`).then(r => r.ok ? r.json() : null)
+          if (current?.data?.estado === "activo") {
+            await patchIncidente(data.incident.id, { estado: "atendido" })
+            mutate("/api/incidentes?estado=activo")
+            mutate("/api/incidentes?estado=atendido")
+            mutate("/api/analytics")
+            addEvent({ type: "incident_resolved", message: `Auto-resuelto: reporte ciudadano en ${data.incident.ubicacion}`, incidentId: data.incident.id })
+          }
+        } catch (err) {
+          console.error("[use-simulation-loop] Auto-resolve citizen ZK failed:", err)
+        }
+      }, AUTO_RESOLVE_UNATTENDED_MS)
+      dispatchTimersRef.current.set(`autoresolve-${data.incident.id}`, autoResolveTimer)
+
+      return data.incident
+    } catch (err) {
+      console.error("[use-simulation-loop] Failed to spawn citizen ZK report:", err)
+      return null
+    }
+  }, [mutate, addEvent])
+
+  const activeCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/incidentes?estado=activo", {
+        headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
+      })
+      const data = await res.json()
+      return Array.isArray(data) ? data.length : 0
+    } catch {
+      return Infinity
+    }
+  }, [])
+
+  const cleanupSimulatedIncidents = useCallback(async () => {
+    try {
+      const res = await fetch("/api/incidentes?estado=activo", {
+        headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
+      })
+      const data = await res.json()
+      const simulated = (Array.isArray(data) ? data : []).filter((i: any) => i.fuente_detalles?.simulated)
+      await Promise.all(
+        simulated.map((i: any) =>
+          fetch("/api/incidentes", {
+            method: "DELETE",
+            headers: API_SECRET ? { "x-api-secret": API_SECRET, "Content-Type": "application/json" } : { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: i.id }),
+          })
+        )
+      )
+      mutate("/api/incidentes?estado=activo")
+      mutate("/api/incidentes?estado=atendido")
+      mutate("/api/analytics")
+      addEvent({ type: "incident_resolved", message: `Limpieza: ${simulated.length} incidentes simulados eliminados` })
+    } catch (err) {
+      console.error("[use-simulation-loop] Failed to cleanup simulated incidents:", err)
+    }
+  }, [mutate, addEvent])
+
   const spawnIncident = useCallback(async () => {
+    const active = await activeCount()
+    if (active >= MAX_ACTIVE_SIMULATED_INCIDENTS) {
+      addEvent({ type: "incident_created", message: "Límite de incidentes activos alcanzado. No se spawnea más." })
+      return null
+    }
+
+    const isCitizen = Math.random() < CITIZEN_REPORT_CHANCE
+    if (isCitizen) {
+      return spawnCitizenZkReport()
+    }
+
     const template = INCIDENT_TEMPLATES[Math.floor(Math.random() * INCIDENT_TEMPLATES.length)]
     const respawn  = buildRespawnIncident({ tipo: template.tipo, fuente: template.fuente })
 
@@ -94,12 +185,30 @@ export function useSimulationLoop() {
       mutate("/api/incidentes?estado=activo")
       mutate("/api/incidentes?estado=atendido")
       addEvent({ type: "incident_created", message: `Nuevo incidente en ${data.ubicacion}`, incidentId: data.id })
+
+      // Auto-resolución de incidentes simulados no atendidos
+      const autoResolveTimer = setTimeout(async () => {
+        try {
+          const current = await fetch(`/api/incidentes/${data.id}`).then(r => r.ok ? r.json() : null)
+          if (current?.data?.estado === "activo") {
+            await patchIncidente(data.id, { estado: "atendido" })
+            mutate("/api/incidentes?estado=activo")
+            mutate("/api/incidentes?estado=atendido")
+            mutate("/api/analytics")
+            addEvent({ type: "incident_resolved", message: `Auto-resuelto: incidente en ${data.ubicacion}`, incidentId: data.id })
+          }
+        } catch (err) {
+          console.error("[use-simulation-loop] Auto-resolve failed:", err)
+        }
+      }, AUTO_RESOLVE_UNATTENDED_MS)
+      dispatchTimersRef.current.set(`autoresolve-${data.id}`, autoResolveTimer)
+
       return data
     } catch (err) {
       console.error("[use-simulation-loop] Failed to spawn incident:", err)
       return null
     }
-  }, [mutate, addEvent])
+  }, [mutate, addEvent, spawnCitizenZkReport])
 
   // Despacha un recurso al incidente y encadena el ciclo de vida
   const dispatchResource = useCallback(
@@ -217,9 +326,10 @@ export function useSimulationLoop() {
     if (spawnTimerRef.current) clearInterval(spawnTimerRef.current) // prevent double-start
     setIsRunning(true)
     setEvents([])
+    await cleanupSimulatedIncidents()
     await spawnIncident()
     spawnTimerRef.current = setInterval(spawnIncident, SIMULATION_SPAWN_INTERVAL_MS)
-  }, [spawnIncident])
+  }, [spawnIncident, cleanupSimulatedIncidents])
 
   // Detiene el loop y limpia timers
   const stopSimulation = useCallback(() => {
@@ -240,5 +350,5 @@ export function useSimulationLoop() {
     }
   }, [])
 
-  return { isRunning, events, activeDispatches, startSimulation, stopSimulation, dispatchResource }
+  return { isRunning, events, activeDispatches, startSimulation, stopSimulation, dispatchResource, spawnCitizenZkReport, cleanupSimulatedIncidents }
 }
