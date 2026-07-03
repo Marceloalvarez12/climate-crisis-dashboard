@@ -99,7 +99,7 @@ export default function ReportarPage() {
         throw new Error(data.error || "Error sending report")
       }
 
-      const incidentId = (data.data?.incident as Record<string, unknown>)?.id as string
+      const incidentId = (data?.incident as Record<string, unknown>)?.id as string
       if (incidentId) {
         router.push(`/seguimiento/${incidentId}`)
         return
