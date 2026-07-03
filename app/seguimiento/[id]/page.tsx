@@ -52,7 +52,7 @@ export default function SeguimientoPage() {
           throw new Error("Error al consultar el reporte")
         }
         const json = await res.json()
-        setIncident(json.data)
+        setIncident(json)
       } catch (err) {
         toast.error("No se pudo cargar el seguimiento")
       } finally {
