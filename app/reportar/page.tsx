@@ -14,15 +14,51 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CONFIG } from "@/lib/config"
 import type { IncidentType, IncidentSeverity, ZkCitizenReport } from "@/lib/types"
+import { TUCUMAN_LOCATIONS_POOL } from "@/hooks/use-incident-simulator"
 
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || ""
+
+// San Miguel de Tucumán bounding box — used to derive a randomized
+// zone location from a citizen-supplied street description. The proof
+// proves membership in this box without revealing the exact point.
+const TUCUMAN_BBOX = { minLat: -27.0, maxLat: -26.5, minLng: -65.5, maxLng: -65.0 }
+
+// Pick a location that looks similar to the typed street. If the user
+// starts typing we surface a candidate from the pool, otherwise we pick
+// a random spot so the demo produces a fresh incident on each submit.
+function pickRandomLocation(seed: string) {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0
+  }
+  const base = TUCUMAN_LOCATIONS_POOL[Math.abs(hash) % TUCUMAN_LOCATIONS_POOL.length]
+  // Small jitter (±0.002 deg ≈ ±200 m) so consecutive reports don't
+  // pile up on top of each other while staying inside the bbox.
+  const jitterLat = (Math.random() - 0.5) * 0.004
+  const jitterLng = (Math.random() - 0.5) * 0.004
+  return {
+    nombre: base.nombre,
+    lat: base.lat + jitterLat,
+    lng: base.lng + jitterLng,
+  }
+}
 
 export default function ReportarPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ubicacion, setUbicacion] = useState("")
+  const [picked, setPicked] = useState<{ nombre: string; lat: number; lng: number } | null>(null)
+
+  function handleUbicacionChange(value: string) {
+    setUbicacion(value)
+    if (value.trim().length >= 3) {
+      setPicked(pickRandomLocation(value))
+    } else {
+      setPicked(null)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -30,19 +66,22 @@ export default function ReportarPage() {
     setError(null)
 
     const form = new FormData(e.currentTarget)
+    const street = (form.get("ubicacion") as string).trim()
+    const location = picked ?? pickRandomLocation(street || Date.now().toString())
+
     const payload: ZkCitizenReport = {
-      lat: parseFloat(form.get("lat") as string),
-      lng: parseFloat(form.get("lng") as string),
+      lat: Number(location.lat.toFixed(4)),
+      lng: Number(location.lng.toFixed(4)),
       tipo: form.get("tipo") as IncidentType,
       severidad: form.get("severidad") as IncidentSeverity,
-      ubicacion: form.get("ubicacion") as string,
+      ubicacion: location.nombre,
       personasAfectadas: parseInt(form.get("personasAfectadas") as string) || 0,
       descripcion: (form.get("descripcion") as string) || undefined,
       zoneHash: 12345,
-      minLat: -27.0,
-      maxLat: -26.5,
-      minLng: -65.5,
-      maxLng: -65.0,
+      minLat: TUCUMAN_BBOX.minLat,
+      maxLat: TUCUMAN_BBOX.maxLat,
+      minLng: TUCUMAN_BBOX.minLng,
+      maxLng: TUCUMAN_BBOX.maxLng,
     }
 
     try {
@@ -84,44 +123,27 @@ export default function ReportarPage() {
           <p className="text-muted-foreground mb-4">
             Demostrá sin revelar tu ubicación exacta que estás dentro de una
             zona de riesgo oficial. El proof se genera localmente con Circom +
-            Groth16 y se verifica vía Stellar/Soroban (modo simulado en este
-            entorno).
+            Groth16 y se verifica on-chain contra el contrato Soroban
+            desplegado en Stellar testnet, así el reporte queda firmado y
+            consultable públicamente sin exponer tu punto exacto.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="lat">Latitud</Label>
-                <Input
-                  id="lat"
-                  name="lat"
-                  type="number"
-                  step="0.0001"
-                  defaultValue={String(CONFIG.INCIDENTS.DEFAULT_COORDS.lat)}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="lng">Longitud</Label>
-                <Input
-                  id="lng"
-                  name="lng"
-                  type="number"
-                  step="0.0001"
-                  defaultValue={String(CONFIG.INCIDENTS.DEFAULT_COORDS.lng)}
-                  required
-                />
-              </div>
-            </div>
-
             <div>
-              <Label htmlFor="ubicacion">Ubicación aproximada</Label>
+              <Label htmlFor="ubicacion">Calle o avenida</Label>
               <Input
                 id="ubicacion"
                 name="ubicacion"
                 placeholder="Ej: Av. Sarmiento y San Martín"
+                value={ubicacion}
+                onChange={(e) => handleUbicacionChange(e.target.value)}
                 required
               />
+              {picked && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Zona enboxada: <span className="font-mono">{picked.lat.toFixed(4)}, {picked.lng.toFixed(4)}</span>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

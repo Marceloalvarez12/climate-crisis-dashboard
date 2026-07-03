@@ -164,3 +164,8 @@ export function useIncidentSimulator({
     resolveIncident,
   };
 }
+
+// Re-export the location pool so non-hook consumers (e.g. the citizen
+// report form) can derive a randomized bounding-box location without
+// pulling in the React state machine from this module.
+export const TUCUMAN_LOCATIONS_POOL: SimulatorLocation[] = LOCATIONS_POOL
