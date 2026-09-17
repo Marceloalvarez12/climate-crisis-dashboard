@@ -66,9 +66,13 @@ export function createLeafletIcon(
   })
 }
 
-/** CSS mínimo para integrar Leaflet con el tema oscuro */
+/** CSS mínimo para integrar Leaflet con el tema oscuro + filtro táctico */
 export const LEAFLET_DARK_STYLES = `
-  .leaflet-container { height:100%; width:100%; background:#1a1a1a; }
+  .leaflet-container {
+    height:100%; width:100%; background:#0a0c10;
+    /* Filtro para dar look "táctico/noche" a los tiles satelitales de Esri */
+    filter: brightness(0.55) contrast(1.15) saturate(0.7) hue-rotate(190deg);
+  }
   .leaflet-popup-content-wrapper { background:#171717; border:1px solid #2a2a2a; border-radius:8px; }
   .leaflet-popup-content { color:#fafafa; margin:12px; }
   .leaflet-popup-tip { background:#171717; border:1px solid #2a2a2a; }
@@ -79,7 +83,7 @@ export const LEAFLET_DARK_STYLES = `
   @keyframes pulse {
     0%   { transform:scale(1);   opacity:0.3; }
     50%  { transform:scale(1.5); opacity:0.1; }
-    100% { transform:scale(1);   opacity:0.3; }
+    100% {transform:scale(1);   opacity:0.3; }
   }
   @keyframes sonar {
     0%   { transform:scale(0.8); opacity:0.6; }
