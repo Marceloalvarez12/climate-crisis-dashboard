@@ -102,7 +102,7 @@ export class ArkivService {
       const entity = await client.getEntity(key as `0x${string}`)
       return {
         key,
-        creator: entity.creator,
+        creator: entity.creator ?? "",
         expiresAtBlock: entity.expiresAtBlock?.toString() || null,
         payload: entity.toJson(),
       }

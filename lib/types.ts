@@ -103,6 +103,7 @@ export interface DbIncident {
   fuente_detalles:  Record<string, unknown>
   estado:           string
   arkiv_key?:       string
+  arkiv_entity_key?: string
   created_at:       string
   updated_at:       string
 }

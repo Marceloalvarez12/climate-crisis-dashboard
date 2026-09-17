@@ -23,21 +23,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const parsed = IncidentCreateSchema.safeParse(body)
-    if (!parsed.success) {
-      return apiValidationError(parsed.error.flatten())
-    }
-
-    const validatedBody = parsed.data
-
     // ── Geocoding: si viene 'address' sin lat/lng reales, resolvemos con Nominatim ──
-    const enrichedBody = { ...validatedBody, fuente_detalles: validatedBody.fuente_detalles ?? {} }
+    let enriched = body
     if (body.address && (!body.latitud || body.latitud === -26.8241)) {
       try {
         const geo = await geocodeAddress(body.address, { fallbackToTucuman: true })
-        enrichedBody.latitud = geo.lat
-        enrichedBody.longitud = geo.lng
-        enrichedBody.ubicacion = geo.displayName
+        enriched = {
+          ...body,
+          latitud: geo.lat,
+          longitud: geo.lng,
+          ubicacion: geo.displayName,
+        }
       } catch (geoErr) {
         console.warn("[api/incidentes/POST] Nominatim error:", geoErr)
         return apiError(
@@ -46,7 +42,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const existing = await IncidentService.findByLocation(enrichedBody.ubicacion)
+    const parsed = IncidentCreateSchema.safeParse(enriched)
+    if (!parsed.success) {
+      return apiValidationError(parsed.error.flatten())
+    }
+
+    const validatedBody = { ...parsed.data, fuente_detalles: parsed.data.fuente_detalles ?? {} }
+
+    const existing = await IncidentService.findByLocation(validatedBody.ubicacion)
 
     if (existing) {
       if (existing.estado === "activo") {
@@ -58,7 +61,7 @@ export async function POST(request: NextRequest) {
       }
 
       const updated = await IncidentService.update(existing.id, {
-        ...enrichedBody,
+        ...validatedBody,
         estado: "activo",
       })
       return apiSuccess(updated)
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
       return apiSuccess({ skipped: true, reason: "max_active_reached" })
     }
 
-    const created = await IncidentService.create(enrichedBody)
+    const created = await IncidentService.create(validatedBody)
     return apiSuccess(created)
   } catch (err) {
     return apiError(String(err))

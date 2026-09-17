@@ -52,6 +52,7 @@ export function SourceIcon({ source }: { source: IncidentSource }) {
     case "social":  return <Twitter     className="h-3 w-3" />
     case "sensor":  return <Thermometer className="h-3 w-3" />
     case "camera":  return <Camera      className="h-3 w-3" />
+    case "citizen": return <AlertTriangle className="h-3 w-3" />
   }
 }
 
@@ -60,6 +61,7 @@ export function sourceLabel(source: IncidentSource): string {
     case "social":  return "Social Media"
     case "sensor":  return "Sensors"
     case "camera":  return "Cameras"
+    case "citizen": return "Citizen"
   }
 }
 
