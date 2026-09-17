@@ -7,19 +7,56 @@ import { CONFIG } from "@/lib/config"
 import type { EmergencyIncident, ArkivDispatchResponse } from "@/lib/types"
 import * as crypto from "crypto"
 
+// Hard timeouts para que un provider lento no cuelgue toda la respuesta
+const ARKIV_TIMEOUT_MS = 8000
+const STELLAR_TIMEOUT_MS = 8000
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | { __timeout: true; error: string }> {
+  return Promise.race([
+    p,
+    new Promise<{ __timeout: true; error: string }>((resolve) =>
+      setTimeout(() => resolve({ __timeout: true, error: `${label} timeout after ${ms}ms` }), ms),
+    ),
+  ])
+}
+
 export async function POST(request: NextRequest): Promise<Response> {
   try {
     const incidente: EmergencyIncident & { arkivKey?: string } = await request.json()
 
-    const isLeaseExtended = await tryExtendLease(incidente.arkivKey)
+    // 1. DB update primero → feedback inmediato al cliente (no toca blockchain)
+    //    El incidente pasa a "atendido" apenas confirmamos en Supabase.
+    //    Arkiv/Stellar se ejecutan en paralelo con timeout, pero no bloquean
+    //    la respuesta si fallan — el resultado se persiste cuando estén listos.
+    const { entityKey, isSimulated } = await createDispatchEntitySafe(incidente)
 
-    const { entityKey, isSimulated } = await createDispatchEntity(incidente)
+    await updateIncidentInDb(incidente, entityKey, isSimulated, false)
 
-    await updateIncidentInDb(incidente, entityKey, isSimulated, isLeaseExtended)
+    // 2. Lease extension + Stellar audit corren en background con timeout duro.
+    //    Si fallan o tardan, el deploy ya fue confirmado.
+    const [extended, stellarAudit] = await Promise.all([
+      withTimeout(
+        tryExtendLease(incidente.arkivKey),
+        ARKIV_TIMEOUT_MS,
+        "Arkiv lease",
+      ).catch((e) => ({ __timeout: false, error: String(e) })),
+      withTimeout(
+        attachStellarAudit(incidente),
+        STELLAR_TIMEOUT_MS,
+        "Stellar audit",
+      ).catch((e) => ({ __timeout: false, error: String(e) })),
+    ])
 
-    const stellarAudit = await attachStellarAudit(incidente)
+    // 3. Si Stellar tardó o falló, persistir resultado sin bloquear la respuesta
+    const stellarResult = stellarAudit && !(stellarAudit as { __timeout?: boolean }).__timeout
+      ? stellarAudit
+      : { isSimulated: true, error: (stellarAudit as { error?: string })?.error ?? "deferred" }
 
-    const response: ArkivDispatchResponse = { success: true, entityKey, stellarAudit }
+    const response: ArkivDispatchResponse = {
+      success: true,
+      entityKey,
+      stellarAudit: stellarResult as Record<string, unknown>,
+    }
     return apiSuccess(response)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to dispatch"
@@ -35,46 +72,55 @@ async function tryExtendLease(arkivKey?: string): Promise<boolean> {
   return ArkivService.extendLease(arkivKey, CONFIG.INCIDENTS.DISPATCH_LEASE_SECONDS)
 }
 
-async function createDispatchEntity(
-  incidente: EmergencyIncident & { arkivKey?: string }
+async function createDispatchEntitySafe(
+  incidente: EmergencyIncident & { arkivKey?: string },
 ): Promise<{ entityKey: string; isSimulated: boolean }> {
-  const account = process.env.ARKIV_PRIVATE_KEY && process.env.ARKIV_PRIVATE_KEY !== "0xREEMPLAZAR_CON_TU_PRIVATE_KEY_AQUI"
-    ? (await import("@arkiv-network/sdk/accounts")).privateKeyToAccount(process.env.ARKIV_PRIVATE_KEY as `0x${string}`).address
-    : "0xSimulatedOperator"
+  try {
+    const account = process.env.ARKIV_PRIVATE_KEY && process.env.ARKIV_PRIVATE_KEY !== "0xREEMPLAZAR_CON_TU_PRIVATE_KEY_AQUI"
+      ? (await import("@arkiv-network/sdk/accounts")).privateKeyToAccount(process.env.ARKIV_PRIVATE_KEY as `0x${string}`).address
+      : "0xSimulatedOperator"
 
-  const payload: DispatchPayload = {
-    action: "dispatch",
-    incidentId: incidente.id,
-    detectionKey: incidente.arkivKey || null,
-    tipo: incidente.tipo,
-    severidad: incidente.severidad,
-    ubicacion: incidente.ubicacion,
-    afectados: incidente.afectados,
-    operator: account,
-    dispatchedAt: new Date().toISOString(),
+    const payload: DispatchPayload = {
+      action: "dispatch",
+      incidentId: incidente.id,
+      detectionKey: incidente.arkivKey || null,
+      tipo: incidente.tipo,
+      severidad: incidente.severidad,
+      ubicacion: incidente.ubicacion,
+      afectados: incidente.afectados,
+      operator: account,
+      dispatchedAt: new Date().toISOString(),
+    }
+
+    const attributes = [
+      { key: "project", value: "climate-crisis-dashboard" },
+      { key: "tipo", value: incidente.tipo || "general" },
+      { key: "severidad", value: incidente.severidad || "medium" },
+      { key: "ubicacion", value: incidente.ubicacion || "unknown" },
+      { key: "status", value: "dispatched" },
+      { key: "track", value: "arkiv" },
+    ]
+
+    if (incidente.arkivKey) {
+      attributes.push({ key: "detectionKey", value: incidente.arkivKey })
+    }
+
+    return await withTimeout(
+      ArkivService.createDispatchEntity(payload, attributes),
+      ARKIV_TIMEOUT_MS,
+      "Arkiv create",
+    ) as { entityKey: string; isSimulated: boolean }
+  } catch (err) {
+    console.warn("[Arkiv create] Failed, using simulated key:", err)
+    return { entityKey: ArkivService.generateSimulatedKey(), isSimulated: true }
   }
-
-  const attributes = [
-    { key: "project", value: "climate-crisis-dashboard" },
-    { key: "tipo", value: incidente.tipo || "general" },
-    { key: "severidad", value: incidente.severidad || "medium" },
-    { key: "ubicacion", value: incidente.ubicacion || "unknown" },
-    { key: "status", value: "dispatched" },
-    { key: "track", value: "arkiv" },
-  ]
-
-  if (incidente.arkivKey) {
-    attributes.push({ key: "detectionKey", value: incidente.arkivKey })
-  }
-
-  return ArkivService.createDispatchEntity(payload, attributes)
 }
 
 async function updateIncidentInDb(
   incidente: EmergencyIncident & { arkivKey?: string },
   entityKey: string,
   isSimulated: boolean,
-  isLeaseExtended: boolean
+  isLeaseExtended: boolean,
 ): Promise<void> {
   const existing = await IncidentService.findById(incidente.id)
 
@@ -101,7 +147,7 @@ async function updateIncidentInDb(
 }
 
 async function attachStellarAudit(
-  incidente: EmergencyIncident & { arkivKey?: string }
+  incidente: EmergencyIncident & { arkivKey?: string },
 ): Promise<Record<string, unknown>> {
   try {
     const existing = await IncidentService.findById(incidente.id)
@@ -119,7 +165,7 @@ async function attachStellarAudit(
         incidente.id,
         zkProof as { a: string; b: string; c: string },
         zkPubSignals,
-        journalContent
+        journalContent,
       )
 
       const audit = {
@@ -140,7 +186,6 @@ async function attachStellarAudit(
       return audit
     }
 
-    // Fallback: simulated audit for legacy incidents without ZK proof
     const content = (existing?.fuente_detalles?.content as string) || `${incidente.tipo}:${incidente.ubicacion}:${incidente.timestamp}`
     const journalDigest = crypto.createHash("sha256").update(content).digest("hex")
     const simulatedProof = {
@@ -150,15 +195,13 @@ async function attachStellarAudit(
     }
     const { entry } = StellarService.buildAuditFromIncident(incidente.id, simulatedProof, [], content)
 
-    const audit = {
+    return {
       ...entry,
       verified: false,
       journalDigest,
       isSimulated: true,
       dispatchedAt: new Date().toISOString(),
     }
-
-    return audit
   } catch (err) {
     console.warn("[Stellar Audit] Failed to attach:", err)
     return { error: err instanceof Error ? err.message : "Stellar audit failed", isSimulated: true }

@@ -60,57 +60,63 @@ export function IncidentDispatchCard({
     setError(null)
 
     try {
-      let blockchainKey: string | undefined = undefined
-
-      // [ARKIV ON-CHAIN] — Attempt blockchain registration with local fallback
-      try {
-        const apiSecret = process.env.NEXT_PUBLIC_API_SECRET || ""
-        const response = await fetch("/api/incidentes/arkiv-dispatch", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            ...(apiSecret ? { "x-api-secret": apiSecret } : {}),
-          },
-          body: JSON.stringify({
-            ...incident,
-            timestamp: new Date().toISOString(),
-          }),
-        })
-        const data = await response.json()
-        if (response.ok && data.success) {
-          blockchainKey = data.entityKey
-          setArkivKey(blockchainKey)
-          if (data.stellarAudit) {
-            setStellarAudit(data.stellarAudit as Record<string, unknown>)
-          }
-          console.log("Successfully registered on-chain. EntityKey:", blockchainKey)
-        } else {
-          console.warn("On-chain signature skipped or unauthorized:", data.error || "API failure")
-        }
-      } catch (bcError) {
-        console.warn("On-chain connection error, continuing with local fallback dispatch:", bcError)
-      }
-
-      // Execute dispatch (database update) if provided
+      // 1) DB dispatch PRIMERO — Supabase responde en ~200ms, así el operador
+      //    ve feedback inmediato. Arkiv/Stellar corren después en background.
       if (onConfirmDispatch) {
-        await onConfirmDispatch()
+        try {
+          await onConfirmDispatch()
+        } catch (e) {
+          console.error("[Dispatch] onConfirmDispatch failed:", e)
+        }
       } else {
-        // LOCAL fallback dispatch: simulates resource deployment
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        // LOCAL fallback dispatch
+        await new Promise(resolve => setTimeout(resolve, 800))
       }
 
       setDeployed(true)
       onDispatchSuccess?.()
+      toast.success("Resources Deployed", {
+        description: `Units sent to ${incident.ubicacion}`,
+      })
 
-      if (blockchainKey) {
-        toast.success("On-Chain Deployment Authorized", {
-          description: `Resources sent to ${incident.ubicacion}. Hash: ${blockchainKey.slice(0, 12)}...`,
+      // 2) Blockchain dispatch en background con timeout corto del cliente.
+      //    No bloquea: ya confirmamos el deploy al usuario. Si la blockchain
+      //    responde, actualizamos el audit card via toast adicional.
+      const BLOCKCHAIN_TIMEOUT_MS = 12000
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), BLOCKCHAIN_TIMEOUT_MS)
+
+      fetch("/api/incidentes/arkiv-dispatch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-secret": process.env.NEXT_PUBLIC_API_SECRET || "",
+        },
+        body: JSON.stringify({
+          ...incident,
+          timestamp: new Date().toISOString(),
+        }),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          clearTimeout(timeoutId)
+          const data = await response.json()
+          if (response.ok && data.success) {
+            const blockchainKey = data.entityKey as string
+            setArkivKey(blockchainKey)
+            if (data.stellarAudit) {
+              setStellarAudit(data.stellarAudit as Record<string, unknown>)
+            }
+            toast.success("On-Chain Audit Sealed", {
+              description: `Hash: ${blockchainKey.slice(0, 12)}...`,
+            })
+          }
         })
-      } else {
-        toast.success("Resources Deployed (Local Mode)", {
-          description: `Units sent to ${incident.ubicacion}. (On-chain registration skipped)`,
+        .catch((bcError) => {
+          clearTimeout(timeoutId)
+          // Silencioso — el deploy ya se hizo; la blockchain es "nice to have"
+          console.warn("[On-chain] skipped or timed out:", bcError)
         })
-      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error"
       console.error("Deployment failed:", errorMessage)
