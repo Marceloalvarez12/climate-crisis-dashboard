@@ -23,6 +23,7 @@ import {
   incidentSeverityLabel,
 } from "./incident-helpers"
 import { RecursoIcon, tipoRecursoLabel } from "./resource-helpers"
+import { IncidentVerifyPanel } from "./incident-verify-panel"
 import type { Incident, DbResource } from "@/lib/types"
 
 // ---------------------------------------------------------------------------
@@ -261,6 +262,9 @@ export function IncidentDetailModal({
                 </div>
                 <SourceDetail incident={incident} />
               </div>
+
+              {/* Verify: coords exactas + cámaras públicas OSM cercanas */}
+              <IncidentVerifyPanel incident={incident} />
 
               {/* On-Chain Verification / Dispatch Action */}
               {incident.estado === "atendido" ? (
