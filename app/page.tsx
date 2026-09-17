@@ -30,7 +30,8 @@ export default function CrisisDashboard() {
   useEffect(() => {
     if (!supabaseClient) return
 
-    const channel = supabaseClient
+    const client = supabaseClient
+    const channel = client
       .channel("realtime-dashboard")
       .on(
         "postgres_changes",
@@ -54,7 +55,7 @@ export default function CrisisDashboard() {
       .subscribe()
 
     return () => {
-      supabaseClient.removeChannel(channel)
+      client.removeChannel(channel)
     }
   }, [])
 
@@ -79,7 +80,7 @@ export default function CrisisDashboard() {
         <DevPanel />
       </Suspense>
 
-      <DashboardHeader />
+      <DashboardHeader incidents={[]} />
 
       {/* ── DESKTOP layout (lg+) ── */}
       <div className="hidden lg:flex flex-1 overflow-hidden">

@@ -110,7 +110,7 @@ export function CrisisMap() {
   )
 
   const sourceCounts = useMemo(() => {
-    const counts: Record<IncidentSource, number> = { social: 0, sensor: 0, camera: 0 }
+    const counts: Record<IncidentSource, number> = { social: 0, sensor: 0, camera: 0, citizen: 0 }
     for (const i of incidents) {
       counts[i.source]++
     }

@@ -1,14 +1,24 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Bell, Settings, Zap, Radio, ShieldCheck } from "lucide-react"
+import { Bell, Settings, Zap, Radio, ShieldCheck, Globe2, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+import { GodsEyeModal } from "./gods-eye-modal"
+import { ReportAddressModal } from "./report-address-modal"
+import type { Incident } from "@/lib/types"
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  incidents?: Incident[]
+  onSelectIncident?: (incident: Incident) => void
+}
+
+export function DashboardHeader({ incidents = [], onSelectIncident }: DashboardHeaderProps) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [alertCount, setAlertCount] = useState(3)
+  const [showGodsEye, setShowGodsEye] = useState(false)
+  const [showReportAddress, setShowReportAddress] = useState(false)
 
   useEffect(() => {
     setCurrentTime(new Date())
@@ -42,6 +52,26 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 border-cyan-500/20 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 text-xs font-semibold cursor-pointer hidden sm:flex"
+          onClick={() => setShowGodsEye(true)}
+        >
+          <Globe2 className="h-3.5 w-3.5" />
+          God's Eye
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary-foreground text-xs font-semibold cursor-pointer hidden sm:flex"
+          onClick={() => setShowReportAddress(true)}
+        >
+          <MapPin className="h-3.5 w-3.5" />
+          Reportar
+        </Button>
+
         <Link href="/reportar" target="_blank" className="sm:block">
           <Button variant="outline" size="sm" className="h-8 gap-1.5 border-indigo-500/20 bg-indigo-500/5 text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300 text-xs font-semibold cursor-pointer">
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -87,6 +117,20 @@ export function DashboardHeader() {
           <Settings className="h-4 w-4" />
         </Button>
       </div>
+
+      <GodsEyeModal
+        open={showGodsEye}
+        onClose={() => setShowGodsEye(false)}
+        incidents={incidents}
+        onSelectIncident={(inc) => {
+          setShowGodsEye(false)
+          onSelectIncident?.(inc)
+        }}
+      />
+      <ReportAddressModal
+        open={showReportAddress}
+        onClose={() => setShowReportAddress(false)}
+      />
     </header>
   )
 }

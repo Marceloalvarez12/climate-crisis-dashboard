@@ -7,7 +7,7 @@ export const IncidentCreateSchema = z.object({
   latitud: z.number().min(-90).max(90).default(-26.8241),
   longitud: z.number().min(-180).max(180).default(-65.2226),
   personas_afectadas: z.number().int().min(0).default(0),
-  fuente: z.enum(["social", "sensor", "camera"]),
+  fuente: z.enum(["social", "sensor", "camera", "citizen"]).default("citizen"),
   fuente_detalles: z.record(z.unknown()).optional(),
   estado: z.enum(["activo", "atendido"]).default("activo"),
 })

@@ -25,6 +25,7 @@ const SOURCE_INDICATOR: Record<IncidentSource, string> = {
   social: "🐦",
   sensor: "📡",
   camera: "📹",
+  citizen: "🙋",
 }
 
 /**

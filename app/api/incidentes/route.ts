@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { IncidentService } from "@/lib/services/incident-service"
 import { apiSuccess, apiError, apiValidationError } from "@/lib/services/api-response"
 import { IncidentCreateSchema, IncidentPatchSchema } from "@/lib/validation"
+import { geocodeAddress } from "@/lib/data/nominatim"
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,7 +30,23 @@ export async function POST(request: NextRequest) {
 
     const validatedBody = parsed.data
 
-    const existing = await IncidentService.findByLocation(validatedBody.ubicacion)
+    // ── Geocoding: si viene 'address' sin lat/lng reales, resolvemos con Nominatim ──
+    const enrichedBody = { ...validatedBody, fuente_detalles: validatedBody.fuente_detalles ?? {} }
+    if (body.address && (!body.latitud || body.latitud === -26.8241)) {
+      try {
+        const geo = await geocodeAddress(body.address, { fallbackToTucuman: true })
+        enrichedBody.latitud = geo.lat
+        enrichedBody.longitud = geo.lng
+        enrichedBody.ubicacion = geo.displayName
+      } catch (geoErr) {
+        console.warn("[api/incidentes/POST] Nominatim error:", geoErr)
+        return apiError(
+          `No se pudo geocodificar la dirección: "${body.address}". Verificá que sea válida.`
+        )
+      }
+    }
+
+    const existing = await IncidentService.findByLocation(enrichedBody.ubicacion)
 
     if (existing) {
       if (existing.estado === "activo") {
@@ -41,7 +58,7 @@ export async function POST(request: NextRequest) {
       }
 
       const updated = await IncidentService.update(existing.id, {
-        ...validatedBody,
+        ...enrichedBody,
         estado: "activo",
       })
       return apiSuccess(updated)
@@ -51,7 +68,7 @@ export async function POST(request: NextRequest) {
       return apiSuccess({ skipped: true, reason: "max_active_reached" })
     }
 
-    const created = await IncidentService.create(validatedBody)
+    const created = await IncidentService.create(enrichedBody)
     return apiSuccess(created)
   } catch (err) {
     return apiError(String(err))

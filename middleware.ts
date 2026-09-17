@@ -4,10 +4,14 @@ import { checkRateLimit } from "@/lib/rate-limit"
 const PUBLIC_PATHS = [
   "/_next",
   "/favicon.ico",
+  "/cesium",
   "/api/analytics",
   "/api/incidentes/arkiv-verify",
   "/api/stellar",
   "/api/incidentes/zk-verify",
+  "/api/layers/earthquakes",
+  "/api/layers/weather",
+  "/api/layers/cameras",
 ]
 
 // Path segments that should be public (exact match or dynamic id)

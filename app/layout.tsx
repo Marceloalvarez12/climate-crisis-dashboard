@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
+import { Toaster } from 'sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -32,8 +33,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark bg-background">
+      <head>
+        <link
+          rel="preload"
+          href="/cesium/Workers/cesiumWorkerBootstrap.js"
+          as="script"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="font-sans antialiased">
         {children}
+        <Toaster position="bottom-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
