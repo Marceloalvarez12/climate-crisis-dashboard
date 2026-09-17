@@ -33,7 +33,7 @@ const MapInner = dynamic(
 )
 
 const MAP_CENTER: [number, number] = [-26.8241, -65.2226]
-const SOURCE_TYPES: IncidentSource[] = ["social", "sensor", "camera"]
+const SOURCE_TYPES: IncidentSource[] = ["social", "sensor", "camera", "citizen"]
 
 const SEVERITY_LEGENDS = [
   { label: "Critical", color: "bg-primary" },
@@ -52,11 +52,11 @@ export function CrisisMap() {
   const [selectedIncident,   setSelectedIncident]   = useState<Incident | null>(null)
   const [showDeployModal,    setShowDeployModal]     = useState(false)
   const [showBlockchainModal, setShowBlockchainModal] = useState(false)
-  const [activeLayers,       setActiveLayers]       = useState<IncidentSource[]>(SOURCE_TYPES)
+  const [viewMode,           setViewMode]           = useState<"activo" | "atendido">("activo")
+  const [activeLayers,       setActiveLayers]       = useState<IncidentSource[]>(["social", "sensor", "camera", "citizen"])
   const [deployingResources, setDeployingResources] = useState(false)
   const [deploySuccess,      setDeploySuccess]      = useState(false)
   const [selectedCounts,     setSelectedCounts]     = useState<Record<string, number>>({})
-  const [viewMode,           setViewMode]           = useState<"activo" | "atendido">("activo")
 
   // Ref for respawn timers cleanup on unmount
   const respawnTimersRef = useRef<Set<NodeJS.Timeout>>(new Set())
@@ -81,17 +81,32 @@ export function CrisisMap() {
 
   useEffect(() => {
     setIsClient(true)
-    const link = document.createElement("link")
-    link.rel = "stylesheet"
-    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    link.onload = () => setLeafletCssLoaded(true)
-    link.onerror = () => console.error("[CrisisMap] Failed to load Leaflet CSS")
-    document.head.appendChild(link)
+
+    // Injectar CSS de Leaflet (CSP permite https://unpkg.com via connect-src)
+    let cancelled = false
+    fetch("https://unpkg.com/leaflet@1.9.4/dist/leaflet.css")
+      .then((r) => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then((css) => {
+        if (cancelled) return
+        const style = document.createElement("style")
+        style.dataset.leaflet = "true"
+        style.textContent = css
+        document.head.appendChild(style)
+        setLeafletCssLoaded(true)
+      })
+      .catch((err) => {
+        console.error("[CrisisMap] Failed to load Leaflet CSS:", err)
+        // En Vercel/prod puede haber CSP estricto. Mostrar el mapa de todas formas
+        // (Leaflet puede funcionar sin su CSS, sólo se ve menos bonito)
+        setLeafletCssLoaded(true)
+      })
 
     restoreResourceTimersOnMount().catch((err) => console.error("[CrisisMap] Error restoring resource timers:", err))
 
     return () => {
-      if (link.parentNode) link.parentNode.removeChild(link)
+      cancelled = true
+      const style = document.querySelector("style[data-leaflet]")
+      if (style) style.remove()
       respawnTimersRef.current.forEach((t) => clearTimeout(t))
       respawnTimersRef.current.clear()
     }
@@ -112,15 +127,15 @@ export function CrisisMap() {
   const sourceCounts = useMemo(() => {
     const counts: Record<IncidentSource, number> = { social: 0, sensor: 0, camera: 0, citizen: 0 }
     for (const i of incidents) {
-      counts[i.source]++
+      if (i.source in counts) counts[i.source]++
     }
     return counts
   }, [incidents])
 
   const severityCounts = useMemo(() => {
-    const counts = { critical: 0, high: 0, medium: 0, low: 0 }
+    const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 }
     for (const i of filteredIncidents) {
-      counts[i.severity]++
+      if (i.severity in counts) counts[i.severity]++
     }
     return counts
   }, [filteredIncidents])

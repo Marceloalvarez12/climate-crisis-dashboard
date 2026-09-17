@@ -33,14 +33,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark bg-background">
-      <head>
-        <link
-          rel="preload"
-          href="/cesium/Workers/cesiumWorkerBootstrap.js"
-          as="script"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body className="font-sans antialiased">
         {children}
         <Toaster position="bottom-right" />

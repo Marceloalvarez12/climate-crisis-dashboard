@@ -15,17 +15,31 @@ export function MapInner({ incidents, onMarkerClick }: MapInnerProps) {
   return (
     <>
       <style>{LEAFLET_DARK_STYLES}</style>
-      <MapContainer center={MAP_CENTER} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+      <MapContainer
+        key="tucuman-main"
+        center={MAP_CENTER}
+        zoom={13}
+        scrollWheelZoom
+        preferCanvas={false}
+        style={{ height: "100%", width: "100%" }}
+      >
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          eventHandlers={{
+            tileerror: (e) => console.warn("[Map] tile load error:", e),
+          }}
         />
         {incidents.map((incident) => {
           const icon = createLeafletIcon(incident.severity, incident.type, incident.source)
           if (!icon) return null
+          if (!Number.isFinite(incident.coordinates?.lat) || !Number.isFinite(incident.coordinates?.lng)) {
+            console.warn("[Map] incident sin coords válidas:", incident.id, incident.coordinates)
+            return null
+          }
           return (
             <Marker
-              key={incident.id}
+              key={`${incident.id}-${incident.coordinates.lat}-${incident.coordinates.lng}`}
               position={[incident.coordinates.lat, incident.coordinates.lng]}
               icon={icon}
               eventHandlers={{ click: () => onMarkerClick(incident) }}
