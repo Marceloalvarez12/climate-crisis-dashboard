@@ -6,17 +6,59 @@ import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./leaflet-icon"
 
 const MAP_CENTER: [number, number] = [-26.8241, -65.2226]
 
+export type TileStyle = "satellite" | "street" | "topo"
+
+interface TileConfig {
+  id: TileStyle
+  label: string
+  url: string
+  attribution: string
+  /** CSS filter opcional para forzar look "dark táctico" sobre tiles claros */
+  filter?: string
+  maxZoom?: number
+}
+
+const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
+  satellite: {
+    id: "satellite",
+    label: "Satélite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles © Esri — Source: Esri, USGS, NOAA",
+    filter: "brightness(0.55) contrast(1.15) saturate(0.7) hue-rotate(190deg)",
+    maxZoom: 19,
+  },
+  street: {
+    id: "street",
+    label: "Calles",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "© OpenStreetMap contributors · ODbL 1.0",
+    maxZoom: 19,
+  },
+  topo: {
+    id: "topo",
+    label: "Topográfico",
+    url: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "© OpenTopoMap (CC BY-SA 3.0) · OpenStreetMap",
+    maxZoom: 17,
+  },
+}
+
 interface MapInnerProps {
   incidents: Incident[]
   onMarkerClick: (incident: Incident) => void
+  tileStyle?: TileStyle
 }
 
-export function MapInner({ incidents, onMarkerClick }: MapInnerProps) {
+export function MapInner({ incidents, onMarkerClick, tileStyle = "satellite" }: MapInnerProps) {
+  const config = TILE_CONFIGS[tileStyle]
+  // Combinar estilos: base dark Leaflet + filtro específico del tile
+  const containerStyle = config.filter ? `${LEAFLET_DARK_STYLES}\n.leaflet-container { filter: ${config.filter}; }` : LEAFLET_DARK_STYLES
+
   return (
     <>
-      <style>{LEAFLET_DARK_STYLES}</style>
+      <style>{containerStyle}</style>
       <MapContainer
-        key="tucuman-main"
+        key={`tucuman-${tileStyle}`}
         center={MAP_CENTER}
         zoom={13}
         scrollWheelZoom
@@ -24,9 +66,10 @@ export function MapInner({ incidents, onMarkerClick }: MapInnerProps) {
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          maxZoom={19}
+          key={tileStyle}
+          attribution={config.attribution}
+          url={config.url}
+          maxZoom={config.maxZoom ?? 19}
           eventHandlers={{
             tileerror: (e) => console.warn("[Map] tile load error:", e),
           }}
@@ -51,3 +94,5 @@ export function MapInner({ incidents, onMarkerClick }: MapInnerProps) {
     </>
   )
 }
+
+export { TILE_CONFIGS }

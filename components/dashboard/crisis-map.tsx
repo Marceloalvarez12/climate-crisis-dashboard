@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import dynamic from "next/dynamic"
-import { MapPin, Layers } from "lucide-react"
+import { MapPin, Layers, Eye, Map as MapIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { mutate } from "swr"
 import { dispatchResourceWithLifecycle, restoreResourceTimersOnMount } from "@/hooks/use-resource-lifecycle"
@@ -54,6 +54,7 @@ export function CrisisMap() {
   const [showBlockchainModal, setShowBlockchainModal] = useState(false)
   const [viewMode,           setViewMode]           = useState<"activo" | "atendido">("activo")
   const [activeLayers,       setActiveLayers]       = useState<IncidentSource[]>(["social", "sensor", "camera", "citizen"])
+  const [tileStyle, setTileStyle] = useState<"satellite" | "street" | "topo">("satellite")
   const [deployingResources, setDeployingResources] = useState(false)
   const [deploySuccess,      setDeploySuccess]      = useState(false)
   const [selectedCounts,     setSelectedCounts]     = useState<Record<string, number>>({})
@@ -247,6 +248,46 @@ export function CrisisMap() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {/* Tile style selector (satellite / street / topo) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-6 gap-1 border-border px-2 text-[10px]">
+                <MapIcon className="h-3 w-3" />
+                {tileStyle === "satellite" ? "Satélite" : tileStyle === "street" ? "Calles" : "Topo"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-44 p-2" align="end">
+              <div className="space-y-1">
+                <p className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Estilo de mapa
+                </p>
+                {([
+                  { id: "satellite", label: "Satélite", desc: "Esri World Imagery (oscuro)" },
+                  { id: "street", label: "Calles", desc: "OpenStreetMap" },
+                  { id: "topo", label: "Topográfico", desc: "OpenTopoMap + relieve" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setTileStyle(opt.id)}
+                    className={cn(
+                      "flex w-full items-start gap-2 rounded px-2 py-1.5 text-left transition-colors",
+                      tileStyle === opt.id ? "bg-primary/10 text-primary" : "hover:bg-secondary/50 text-foreground",
+                    )}
+                  >
+                    <Eye className="mt-0.5 h-3 w-3 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium">{opt.label}</p>
+                      <p className="text-[9px] text-muted-foreground">{opt.desc}</p>
+                    </div>
+                    {tileStyle === opt.id && (
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
           {/* Layer filter */}
           <Popover>
             <PopoverTrigger asChild>
@@ -401,6 +442,7 @@ export function CrisisMap() {
           <MapInner
             incidents={filteredIncidents}
             onMarkerClick={(incident) => setSelectedIncident(incident)}
+            tileStyle={tileStyle}
           />
         </div>
       ) : (
