@@ -62,37 +62,29 @@ export function IncidentVerifyPanel({ incident, defaultRadius = 1500 }: Incident
       node["highway"="speed_camera"](around:${defaultRadius},${lat},${lng});
     );out tags;`
 
-    fetch("https://overpass-api.de/api/interpreter", {
+    // Usar proxy server-side: maneja CORS, CSP, timeouts, cache, fallback de mirrors
+    fetch("/api/layers/cameras", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "data=" + encodeURIComponent(query),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat, lng, radius: defaultRadius }),
     })
-      .then((r) => {
-        if (!r.ok) throw new Error(`Overpass HTTP ${r.status}`)
-        return r.json() as Promise<{ elements: Array<{ id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }> }>
-      })
-      .then((json) => {
+      .then((r) => r.json() as Promise<{ count: number; cameras: Array<{
+        id: string
+        kind: "surveillance" | "speed_camera"
+        name: string
+        operator: string | null
+        url: string | null
+        lat: number
+        lng: number
+        distanceM: number
+      }>; error?: string }>)
+      .then((data) => {
         if (cancelled) return
-        const hits: CameraHit[] = (json.elements || [])
-          .map((el) => {
-            const lat = el.lat ?? el.center?.lat
-            const lng = el.lon ?? el.center?.lon
-            if (lat == null || lng == null) return null
-            const kind: CameraHit["kind"] = el.tags?.highway === "speed_camera" ? "speed_camera" : "surveillance"
-            return {
-              id: `${el.type}/${el.id}`,
-              kind,
-              name: el.tags?.name || (kind === "speed_camera" ? "Speed camera" : "Surveillance camera"),
-              operator: el.tags?.operator || el.tags?.surveillance || null,
-              url: el.tags?.url || el.tags?.contact_camera || null,
-              lat,
-              lng,
-              distanceM: haversine(lat, lng, incident.coordinates.lat, incident.coordinates.lng),
-            }
-          })
-          .filter((c): c is CameraHit => c !== null)
-          .sort((a, b) => a.distanceM - b.distanceM)
-        setCameras(hits)
+        if (data.error && (!data.cameras || data.cameras.length === 0)) {
+          setError(data.error)
+          return
+        }
+        setCameras(data.cameras || [])
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Unknown error")

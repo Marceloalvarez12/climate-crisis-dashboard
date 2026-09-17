@@ -269,7 +269,21 @@ export function IncidentDetailModal({
               {/* On-Chain Verification / Dispatch Action */}
               {incident.estado === "atendido" ? (
                 <div className="space-y-3">
-                  {incident.arkiv_key && <OnChainVerifier arkivKey={incident.arkiv_key} />}
+                  {incident.arkiv_key ? (
+                    <OnChainVerifier arkivKey={incident.arkiv_key} />
+                  ) : (
+                    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-yellow-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-xs font-semibold">On-Chain audit pending</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        El incidente ya está atendido pero el sello criptográfico en Arkiv/Stellar
+                        aún no se grabó (la red puede estar congestionada). Refrescá esta
+                        ventana en unos segundos para ver el hash.
+                      </p>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Button
                       className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 py-5 cursor-pointer"
