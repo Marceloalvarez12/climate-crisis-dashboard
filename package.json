@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "copy-cesium": "node lib/map/copy-cesium-assets.mjs",
+    "postinstall": "node lib/map/copy-cesium-assets.mjs"
   },
   "dependencies": {
     "@arkiv-network/sdk": "^0.6.8",
