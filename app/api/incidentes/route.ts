@@ -2,7 +2,6 @@ import { NextRequest } from "next/server"
 import { IncidentService } from "@/lib/services/incident-service"
 import { apiSuccess, apiError, apiValidationError } from "@/lib/services/api-response"
 import { IncidentCreateSchema, IncidentPatchSchema } from "@/lib/validation"
-import { geocodeAddress } from "@/lib/data/nominatim"
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,26 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // ── Geocoding: si viene 'address' sin lat/lng reales, resolvemos con Nominatim ──
-    let enriched = body
-    if (body.address && (!body.latitud || body.latitud === -26.8241)) {
-      try {
-        const geo = await geocodeAddress(body.address, { fallbackToTucuman: true })
-        enriched = {
-          ...body,
-          latitud: geo.lat,
-          longitud: geo.lng,
-          ubicacion: geo.displayName,
-        }
-      } catch (geoErr) {
-        console.warn("[api/incidentes/POST] Nominatim error:", geoErr)
-        return apiError(
-          `No se pudo geocodificar la dirección: "${body.address}". Verificá que sea válida.`
-        )
-      }
-    }
-
-    const parsed = IncidentCreateSchema.safeParse(enriched)
+    const parsed = IncidentCreateSchema.safeParse(body)
     if (!parsed.success) {
       return apiValidationError(parsed.error.flatten())
     }
