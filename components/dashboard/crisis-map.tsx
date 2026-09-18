@@ -54,7 +54,7 @@ export function CrisisMap() {
   const [showBlockchainModal, setShowBlockchainModal] = useState(false)
   const [viewMode,           setViewMode]           = useState<"activo" | "atendido">("activo")
   const [activeLayers,       setActiveLayers]       = useState<IncidentSource[]>(["social", "sensor", "camera", "citizen"])
-  const [tileStyle, setTileStyle] = useState<"satellite" | "street" | "topo">("satellite")
+  const [tileStyle, setTileStyle] = useState<("satellite" | "street" | "topo")>("street")
   const [deployingResources, setDeployingResources] = useState(false)
   const [deploySuccess,      setDeploySuccess]      = useState(false)
   const [selectedCounts,     setSelectedCounts]     = useState<Record<string, number>>({})

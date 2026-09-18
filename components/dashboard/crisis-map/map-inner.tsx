@@ -49,7 +49,7 @@ interface MapInnerProps {
   tileStyle?: TileStyle
 }
 
-export function MapInner({ incidents, onMarkerClick, tileStyle = "satellite" }: MapInnerProps) {
+export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: MapInnerProps) {
   const config = TILE_CONFIGS[tileStyle]
   // Combinar estilos: base dark Leaflet + filtro específico del tile
   const containerStyle = config.filter ? `${LEAFLET_DARK_STYLES}\n.leaflet-container { filter: ${config.filter}; }` : LEAFLET_DARK_STYLES
