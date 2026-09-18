@@ -15,26 +15,35 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { toast } from "sonner"
 import type { IncidentType, IncidentSeverity, ZkCitizenReport } from "@/lib/types"
-import { TUCUMAN_LOCATIONS_POOL } from "@/hooks/use-incident-simulator"
 
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || ""
 
 const TUCUMAN_BBOX = { minLat: -27.0, maxLat: -26.5, minLng: -65.5, maxLng: -65.0 }
 
-function pickRandomLocation(seed: string) {
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) | 0
-  }
-  const base = TUCUMAN_LOCATIONS_POOL[Math.abs(hash) % TUCUMAN_LOCATIONS_POOL.length]
-  const jitterLat = (Math.random() - 0.5) * 0.004
-  const jitterLng = (Math.random() - 0.5) * 0.004
-  return {
-    nombre: base.nombre,
-    lat: base.lat + jitterLat,
-    lng: base.lng + jitterLng,
+type GeocodedLocation = { nombre: string; lat: number; lng: number }
+
+async function geocodeAddress(address: string): Promise<GeocodedLocation | null> {
+  const query = `${address}, San Miguel de Tucumán, Tucumán, Argentina`
+  const params = new URLSearchParams({
+    q: query,
+    format: "jsonv2",
+    limit: "1",
+    countrycodes: "ar",
+    viewbox: `${TUCUMAN_BBOX.minLng},${TUCUMAN_BBOX.maxLat},${TUCUMAN_BBOX.maxLng},${TUCUMAN_BBOX.minLat}`,
+    bounded: "1",
+  })
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+    })
+    if (!response.ok) return null
+    const results = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>
+    const result = results[0]
+    if (!result) return null
+    return { nombre: result.display_name, lat: Number(result.lat), lng: Number(result.lon) }
+  } catch {
+    return null
   }
 }
 
@@ -43,7 +52,7 @@ export default function ReportarPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ubicacion, setUbicacion] = useState("")
-  const [picked, setPicked] = useState<{ nombre: string; lat: number; lng: number } | null>(null)
+  const [picked, setPicked] = useState<GeocodedLocation | null>(null)
   const [reportResult, setReportResult] = useState<{
     incidentId: string
     txHash: string | null
@@ -145,11 +154,7 @@ export default function ReportarPage() {
 
   function handleUbicacionChange(value: string) {
     setUbicacion(value)
-    if (value.trim().length >= 3) {
-      setPicked(pickRandomLocation(value))
-    } else {
-      setPicked(null)
-    }
+    setPicked(null)
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -159,7 +164,12 @@ export default function ReportarPage() {
 
     const form = new FormData(e.currentTarget)
     const street = (form.get("ubicacion") as string).trim()
-    const location = picked ?? pickRandomLocation(street || Date.now().toString())
+    const location = await geocodeAddress(street)
+    if (!location) {
+      setError("No pudimos ubicar esa dirección en San Miguel de Tucumán. Verificá la calle y altura o esquina.")
+      setLoading(false)
+      return
+    }
 
     const payload: ZkCitizenReport = {
       lat: Number(location.lat.toFixed(4)),
@@ -258,7 +268,7 @@ export default function ReportarPage() {
                   Street or avenue
                 </Label>
                 <span className="font-mono text-[9px] text-zinc-600">
-                  used to derive a risk-zone, never stored verbatim
+                  se geolocaliza para ubicar el incidente en el mapa
                 </span>
               </div>
               <div className="relative">
