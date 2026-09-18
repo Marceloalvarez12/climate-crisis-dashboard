@@ -21,6 +21,8 @@ interface TileConfig {
   fallbackUrl?: string
   fallbackAttribution?: string
   fallbackFilter?: string
+  /** Overlay transparente con labels sobre el base (estilo dark matter CARTO) */
+  overlayUrl?: string
 }
 
 const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
@@ -35,12 +37,15 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
   street: {
     id: "street",
     label: "Oscuro",
-    // Esri Dark Gray Canvas: mapa base dark estilo "dark matter" (calles +
-    // labels en gris) 100% keyless. Reemplaza a CARTO dark_all, que ahora
-    // devuelve HTTP 200 con watermark 'API KEY REQUIRED' embebido en el PNG
-    // (no dispara tileerror, por eso el failover no lo detectaba).
+    // Esri Dark Gray Canvas (base oscuro) + Dark Gray Reference (labels
+    // claras transparentes) superpuestos. Visualmente equivalente al
+    // CARTO dark_all original del v0- pero 100% keyless y sin watermark.
+    // El CARTO dark_all ahora siempre devuelve tiles con "API KEY REQUIRED"
+    // estampado en el PNG — no dispara tileerror, por eso un failover
+    // por eventos no lo detectaba. Reemplazo directo a la URL del v0-.
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles &copy; Esri &mdash; Esri, GARMIN, FAO, NOAA, USGS",
+    overlayUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles © Esri — Esri, GARMIN, FAO, NOAA, USGS",
     maxZoom: 16,
   },
   topo: {
@@ -54,8 +59,8 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
   },
 }
 
-// Umbral de errores antes de hacer failover (Leaflet reintentará muchos
-// tiles si es un problema transitorio; N errores seguidos sí es un patrón)
+// Umbral de errores antes de hacer failover (Leaflet reintentará
+// tiles si es un problema transitorio; N errores seguidos sí es patrón)
 const TILE_ERROR_THRESHOLD = 8
 
 interface MapInnerProps {
@@ -72,7 +77,6 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
   const [usesFallback, setUsesFallback] = useState(false)
   const errorCountRef = useRef(0)
 
-  // Reset si cambia el tileStyle
   useEffect(() => {
     errorCountRef.current = 0
     setUsesFallback(false)
@@ -108,14 +112,23 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          key={`${tileStyle}-${usesFallback ? "fallback" : "primary"}`}
+          key={`${tileStyle}-base`}
           attribution={activeAttribution}
           url={activeUrl}
           maxZoom={config.maxZoom ?? 19}
-          eventHandlers={{
-            tileerror: handleTileError,
-          }}
+          eventHandlers={{ tileerror: handleTileError }}
         />
+        {/* Overlay con labels claras — solo si el config lo pide (dark matter style) */}
+        {!usesFallback && config.overlayUrl && (
+          <TileLayer
+            key={`${tileStyle}-overlay`}
+            attribution=""
+            url={config.overlayUrl}
+            maxZoom={config.maxZoom ?? 19}
+            opacity={1}
+            pane="overlayPane"
+          />
+        )}
         {incidents.map((incident) => {
           const icon = createLeafletIcon(incident.severity, incident.type, incident.source)
           if (!icon) return null
