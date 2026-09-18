@@ -21,8 +21,6 @@ interface TileConfig {
   fallbackUrl?: string
   fallbackAttribution?: string
   fallbackFilter?: string
-  /** Overlay transparente con labels sobre el base (estilo dark matter CARTO) */
-  overlayUrl?: string
 }
 
 const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
@@ -37,14 +35,9 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
   street: {
     id: "street",
     label: "Oscuro",
-    // Esri Dark Gray Canvas (base oscuro) + Dark Gray Reference (labels
-    // claras transparentes) superpuestos. Visualmente equivalente al
-    // CARTO dark_all original del v0- pero 100% keyless y sin watermark.
-    // El CARTO dark_all ahora siempre devuelve tiles con "API KEY REQUIRED"
-    // estampado en el PNG — no dispara tileerror, por eso un failover
-    // por eventos no lo detectaba. Reemplazo directo a la URL del v0-.
+    // Esri World Dark Gray Canvas — color base uniforme, sin labels,
+    // sin overlay transparente. Una sola capa, simple, keyless, sin watermark.
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-    overlayUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles © Esri — Esri, GARMIN, FAO, NOAA, USGS",
     maxZoom: 16,
   },
@@ -112,23 +105,12 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          key={`${tileStyle}-base`}
+          key={`${tileStyle}-single`}
           attribution={activeAttribution}
           url={activeUrl}
           maxZoom={config.maxZoom ?? 19}
           eventHandlers={{ tileerror: handleTileError }}
         />
-        {/* Overlay con labels claras — solo si el config lo pide (dark matter style) */}
-        {!usesFallback && config.overlayUrl && (
-          <TileLayer
-            key={`${tileStyle}-overlay`}
-            attribution=""
-            url={config.overlayUrl}
-            maxZoom={config.maxZoom ?? 19}
-            opacity={1}
-            pane="overlayPane"
-          />
-        )}
         {incidents.map((incident) => {
           const icon = createLeafletIcon(incident.severity, incident.type, incident.source)
           if (!icon) return null
