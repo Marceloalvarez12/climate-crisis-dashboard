@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
-import { MapContainer, TileLayer, Marker } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
 import type { Incident } from "@/lib/types"
 import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./leaflet-icon"
 import { HeatMapLayer } from "./heat-map-layer"
@@ -32,12 +32,16 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
     maxZoom: 19,
   },
   street: {
-    id: "street",
-    label: "Oscuro",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles © Esri — Esri, GARMIN, FAO, NOAA, USGS",
-    maxZoom: 16,
-  },
+      id: "street",
+      label: "Oscuro",
+      // Esri Dark Gray Canvas + filtro CSS para bajar el gris a un negro
+      // táctico: mantiene calles y etiquetas visibles pero destaca los
+      // pines de incidentes. Equivalente dark-matter sin watermark.
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      attribution: "Tiles © Esri — Esri, GARMIN, FAO, NOAA, USGS",
+      filter: "brightness(0.48) contrast(1.2) saturate(0.8)",
+      maxZoom: 16,
+    },
   topo: {
     id: "topo",
     label: "Topográfico",
@@ -73,9 +77,20 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
     setActiveFilter(config.filter)
   }, [tileStyle, config.url, config.attribution, config.filter])
 
-  const containerStyle = activeFilter
-    ? `${LEAFLET_DARK_STYLES}\n.leaflet-container { filter: ${activeFilter}; }`
-    : LEAFLET_DARK_STYLES
+  const containerStyle = `${LEAFLET_DARK_STYLES}
+    ${activeFilter ? `.leaflet-container { filter: ${activeFilter}; }` : ""}
+    .incident-map-popup .leaflet-popup-content-wrapper,
+    .incident-map-popup .leaflet-popup-tip {
+      background: #080b0d;
+      border: 1px solid #293137;
+      color: #e5e7eb;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+    .incident-map-popup .leaflet-popup-content { margin: 12px 14px; min-width: 190px; }
+    .incident-popup-content { display: flex; flex-direction: column; gap: 5px; font: 12px/1.35 Inter, sans-serif; }
+    .incident-popup-content strong { color: #f8fafc; font-size: 13px; }
+    .incident-popup-content span { color: #a7b0b7; }
+    .incident-popup-content span:nth-child(2) { color: #ff334a; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; }`
 
   const handleTileError = () => {
     errorCountRef.current += 1
@@ -123,8 +138,24 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
               key={`${incident.id}-${incident.coordinates.lat}-${incident.coordinates.lng}`}
               position={[incident.coordinates.lat, incident.coordinates.lng]}
               icon={icon}
-              eventHandlers={{ click: () => onMarkerClick(incident) }}
-            />
+              eventHandlers={{
+                click: () => onMarkerClick(incident),
+                mouseover: (event) => event.target.openPopup(),
+                mouseout: (event) => event.target.closePopup(),
+              }}
+            >
+              <Popup className="incident-map-popup" closeButton={false} autoPan={false}>
+                <div className="incident-popup-content">
+                  <strong>{incident.location || "Ubicación no disponible"}</strong>
+                  <span>{incident.type.toUpperCase()} · {incident.severity.toUpperCase()}</span>
+                  <span>Reportado por: {incident.source === "citizen" ? "Ciudadano" : incident.source === "social" ? "Agente IA / Redes sociales" : incident.source === "sensor" ? "Sensor" : "Cámara"}</span>
+                  {incident.sourceDetails.username && <span>Usuario: {incident.sourceDetails.username}</span>}
+                  {incident.sourceDetails.platform && <span>Canal: {incident.sourceDetails.platform}</span>}
+                  <span>Afectados: {incident.affectedPeople}</span>
+                  <span>{incident.timestamp.toLocaleString("es-AR")}</span>
+                </div>
+              </Popup>
+            </Marker>
           )
         })}
       </MapContainer>
