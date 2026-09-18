@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef, useState, useEffect } from "react"
 import { MapContainer, TileLayer, Marker } from "react-leaflet"
 import type { Incident } from "@/lib/types"
 import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./leaflet-icon"
@@ -16,6 +17,10 @@ interface TileConfig {
   /** CSS filter opcional para forzar look "dark táctico" sobre tiles claros */
   filter?: string
   maxZoom?: number
+  /** Provider de fallback si este falla (watermark rate limit etc) */
+  fallbackUrl?: string
+  fallbackAttribution?: string
+  fallbackFilter?: string
 }
 
 const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
@@ -33,6 +38,11 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
     url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
     maxZoom: 19,
+    // Si CARTO empieza a servir tiles con watermark "API KEY REQUIRED",
+    // switch silencioso a Esri (dark táctico) — el usuario no ve el watermark
+    fallbackUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    fallbackAttribution: "Tiles © Esri",
+    fallbackFilter: "brightness(0.55) contrast(1.15) saturate(0.7) hue-rotate(190deg)",
   },
   topo: {
     id: "topo",
@@ -40,8 +50,14 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
     url: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
     attribution: "© OpenTopoMap (CC BY-SA 3.0) · OpenStreetMap",
     maxZoom: 17,
+    fallbackUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    fallbackAttribution: "Tiles © Esri",
   },
 }
+
+// Umbral de errores antes de hacer failover (Leaflet reintentará muchos
+// tiles si es un problema transitorio; N errores seguidos sí es un patrón)
+const TILE_ERROR_THRESHOLD = 8
 
 interface MapInnerProps {
   incidents: Incident[]
@@ -51,14 +67,41 @@ interface MapInnerProps {
 
 export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: MapInnerProps) {
   const config = TILE_CONFIGS[tileStyle]
-  // Combinar estilos: base dark Leaflet + filtro específico del tile
-  const containerStyle = config.filter ? `${LEAFLET_DARK_STYLES}\n.leaflet-container { filter: ${config.filter}; }` : LEAFLET_DARK_STYLES
+  const [activeUrl, setActiveUrl] = useState(config.url)
+  const [activeAttribution, setActiveAttribution] = useState(config.attribution)
+  const [activeFilter, setActiveFilter] = useState(config.filter)
+  const [usesFallback, setUsesFallback] = useState(false)
+  const errorCountRef = useRef(0)
+
+  // Reset si cambia el tileStyle
+  useEffect(() => {
+    errorCountRef.current = 0
+    setUsesFallback(false)
+    setActiveUrl(config.url)
+    setActiveAttribution(config.attribution)
+    setActiveFilter(config.filter)
+  }, [tileStyle, config.url, config.attribution, config.filter])
+
+  const containerStyle = activeFilter
+    ? `${LEAFLET_DARK_STYLES}\n.leaflet-container { filter: ${activeFilter}; }`
+    : LEAFLET_DARK_STYLES
+
+  const handleTileError = () => {
+    errorCountRef.current += 1
+    if (errorCountRef.current >= TILE_ERROR_THRESHOLD && !usesFallback && config.fallbackUrl) {
+      console.warn("[Map] Tile provider failing — switching to fallback silently")
+      setUsesFallback(true)
+      setActiveUrl(config.fallbackUrl)
+      setActiveAttribution(config.fallbackAttribution || config.attribution)
+      setActiveFilter(config.fallbackFilter)
+    }
+  }
 
   return (
     <>
       <style>{containerStyle}</style>
       <MapContainer
-        key={`tucuman-${tileStyle}`}
+        key={`tucuman-${tileStyle}-${usesFallback ? "fb" : "primary"}`}
         center={MAP_CENTER}
         zoom={13}
         scrollWheelZoom
@@ -66,12 +109,12 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          key={tileStyle}
-          attribution={config.attribution}
-          url={config.url}
+          key={`${tileStyle}-${usesFallback ? "fallback" : "primary"}`}
+          attribution={activeAttribution}
+          url={activeUrl}
           maxZoom={config.maxZoom ?? 19}
           eventHandlers={{
-            tileerror: (e) => console.warn("[Map] tile load error:", e),
+            tileerror: handleTileError,
           }}
         />
         {incidents.map((incident) => {
