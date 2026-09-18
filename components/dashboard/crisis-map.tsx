@@ -253,7 +253,7 @@ export function CrisisMap() {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="h-6 gap-1 border-border px-2 text-[10px]">
                 <MapIcon className="h-3 w-3" />
-                {tileStyle === "satellite" ? "Satélite" : tileStyle === "street" ? "Calles" : "Topo"}
+                {tileStyle === "satellite" ? "Satélite" : tileStyle === "street" ? "Oscuro" : "Topo"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-44 p-2" align="end">
@@ -263,7 +263,7 @@ export function CrisisMap() {
                 </p>
                 {([
                   { id: "satellite", label: "Satélite", desc: "Esri World Imagery (oscuro)" },
-                  { id: "street", label: "Calles", desc: "OpenStreetMap" },
+                  { id: "street", label: "Oscuro", desc: "CARTO dark matter" },
                   { id: "topo", label: "Topográfico", desc: "OpenTopoMap + relieve" },
                 ] as const).map((opt) => (
                   <button

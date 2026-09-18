@@ -29,9 +29,9 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
   },
   street: {
     id: "street",
-    label: "Calles",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "© OpenStreetMap contributors · ODbL 1.0",
+    label: "Oscuro",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
     maxZoom: 19,
   },
   topo: {
