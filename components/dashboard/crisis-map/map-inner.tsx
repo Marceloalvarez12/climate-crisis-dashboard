@@ -35,14 +35,13 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
   street: {
     id: "street",
     label: "Oscuro",
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-    maxZoom: 19,
-    // Si CARTO empieza a servir tiles con watermark "API KEY REQUIRED",
-    // switch silencioso a Esri (dark táctico) — el usuario no ve el watermark
-    fallbackUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    fallbackAttribution: "Tiles © Esri",
-    fallbackFilter: "brightness(0.55) contrast(1.15) saturate(0.7) hue-rotate(190deg)",
+    // Esri Dark Gray Canvas: mapa base dark estilo "dark matter" (calles +
+    // labels en gris) 100% keyless. Reemplaza a CARTO dark_all, que ahora
+    // devuelve HTTP 200 con watermark 'API KEY REQUIRED' embebido en el PNG
+    // (no dispara tileerror, por eso el failover no lo detectaba).
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Esri, GARMIN, FAO, NOAA, USGS",
+    maxZoom: 16,
   },
   topo: {
     id: "topo",
