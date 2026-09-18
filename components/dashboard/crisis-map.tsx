@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import dynamic from "next/dynamic"
-import { MapPin, Layers, Eye, Map as MapIcon } from "lucide-react"
+import { MapPin, Layers, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { mutate } from "swr"
 import { dispatchResourceWithLifecycle, restoreResourceTimersOnMount } from "@/hooks/use-resource-lifecycle"
@@ -248,45 +248,31 @@ export function CrisisMap() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          {/* Tile style selector (satellite / street / topo) */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-6 gap-1 border-border px-2 text-[10px]">
-                <MapIcon className="h-3 w-3" />
-                {tileStyle === "satellite" ? "Satélite" : tileStyle === "street" ? "Oscuro" : "Topo"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-44 p-2" align="end">
-              <div className="space-y-1">
-                <p className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Estilo de mapa
-                </p>
-                {([
-                  { id: "satellite", label: "Satélite", desc: "Esri World Imagery (oscuro)" },
-                  { id: "street", label: "Oscuro", desc: "CARTO dark matter" },
-                  { id: "topo", label: "Topográfico", desc: "OpenTopoMap + relieve" },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setTileStyle(opt.id)}
-                    className={cn(
-                      "flex w-full items-start gap-2 rounded px-2 py-1.5 text-left transition-colors",
-                      tileStyle === opt.id ? "bg-primary/10 text-primary" : "hover:bg-secondary/50 text-foreground",
-                    )}
-                  >
-                    <Eye className="mt-0.5 h-3 w-3 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium">{opt.label}</p>
-                      <p className="text-[9px] text-muted-foreground">{opt.desc}</p>
-                    </div>
-                    {tileStyle === opt.id && (
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+          {/* Vistas del mapa: siempre visibles para cambiar rápidamente de cartografía */}
+          <div className="flex items-center rounded-md border border-border bg-secondary/40 p-0.5" role="group" aria-label="Vistas del mapa">
+            {([
+              { id: "street", label: "Oscuro", desc: "Mapa táctico" },
+              { id: "satellite", label: "Satélite", desc: "Imagen aérea" },
+              { id: "topo", label: "Topo", desc: "Relieve" },
+            ] as const).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                title={opt.desc}
+                aria-pressed={tileStyle === opt.id}
+                onClick={() => setTileStyle(opt.id)}
+                className={cn(
+                  "flex items-center gap-1 rounded px-1.5 py-1 text-[10px] transition-colors sm:px-2",
+                  tileStyle === opt.id
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                <Eye className="h-3 w-3" />
+                <span>{opt.label}</span>
+              </button>
+            ))}
+          </div>
 
           {/* Layer filter */}
           <Popover>
