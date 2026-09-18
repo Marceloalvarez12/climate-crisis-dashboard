@@ -424,7 +424,7 @@ export function CrisisMap() {
 
       {/* ── Leaflet Map ─────────────────────────────────────────────── */}
       {isClient && leafletCssLoaded ? (
-        <div className="h-[400px] w-full shrink-0 pt-10 md:h-full md:flex-1">
+        <div className="h-[400px] w-full shrink-0 pt-10 md:h-[min(70vh,680px)] md:flex-none">
           <MapInner
             incidents={filteredIncidents}
             onMarkerClick={(incident) => setSelectedIncident(incident)}
