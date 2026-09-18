@@ -35,10 +35,11 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
   street: {
     id: "street",
     label: "Oscuro",
-    // Esri World Dark Gray Canvas — color base uniforme, sin labels,
-    // sin overlay transparente. Una sola capa, simple, keyless, sin watermark.
+    // Esri Dark Gray con filtro: mantiene calles y etiquetas visibles,
+    // pero baja el gris a un negro táctico para destacar los incidentes.
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles © Esri — Esri, GARMIN, FAO, NOAA, USGS",
+    filter: "brightness(0.48) contrast(1.2) saturate(0.8)",
     maxZoom: 16,
   },
   topo: {
