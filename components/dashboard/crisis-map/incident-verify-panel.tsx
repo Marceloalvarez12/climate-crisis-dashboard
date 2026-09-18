@@ -107,7 +107,7 @@ export function IncidentVerifyPanel({ incident, defaultRadius = 1500 }: Incident
       <div className="flex items-center justify-between gap-2 bg-secondary/30 px-3 py-2">
         <div className="flex items-center gap-2">
           <Compass className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-semibold text-foreground">Verificación visual</span>
+          <span className="text-xs font-semibold text-foreground">Visual verification</span>
         </div>
         <span className="text-[9px] font-mono text-muted-foreground">
           {incident.coordinates.lat.toFixed(5)}, {incident.coordinates.lng.toFixed(5)}
@@ -163,21 +163,24 @@ export function IncidentVerifyPanel({ incident, defaultRadius = 1500 }: Incident
           )}
 
           {!loading && error && (
-            <div className="rounded-md border border-red-500/20 bg-red-500/5 p-2.5 text-[10px] text-red-400">
-              Error consultando Overpass: {error}
+            <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2.5 text-[10px]">
+              <p className="font-semibold text-amber-400">Live camera lookup unavailable</p>
+              <p className="mt-1 text-muted-foreground">
+                The public camera feed could not be reached. Confirm visually using
+                Google Maps or Street View above.
+              </p>
             </div>
           )}
 
           {!loading && !error && cameras.length === 0 && (
             <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2.5 text-[10px]">
-              <p className="font-semibold text-amber-400">Sin cámaras OSM en este radio.</p>
+              <p className="font-semibold text-amber-400">No public cameras mapped nearby.</p>
               <p className="mt-1 text-muted-foreground">
-                Argentina/Latinoamérica tienen poca cobertura de{" "}
-                <code className="text-[9px]">man_made=surveillance</code> en OpenStreetMap.
+                This region has little <code className="text-[9px]">man_made=surveillance</code> coverage in OpenStreetMap.
               </p>
               <p className="mt-1 text-muted-foreground">
-                En <strong>USA/Europa/Canadá</strong> esta sección muestra cámaras municipales
-                con feed en vivo. Confirmá el incidente abriendo Street View o un mapa local.
+                In <strong>USA / Europe / Canada</strong> this section lists municipal
+                feeds you can open directly. Confirm visually via Street View meanwhile.
               </p>
             </div>
           )}
@@ -213,7 +216,7 @@ export function IncidentVerifyPanel({ incident, defaultRadius = 1500 }: Incident
           )}
 
           <p className="mt-2 text-[9px] text-muted-foreground">
-            Datos: OpenStreetMap · ODbL 1.0 · Overpass API
+            Data: OpenStreetMap · ODbL 1.0 · Overpass API
           </p>
         </div>
       </div>

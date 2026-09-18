@@ -275,12 +275,12 @@ export function IncidentDetailModal({
                     <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-4 space-y-2">
                       <div className="flex items-center gap-2 text-yellow-400">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-xs font-semibold">On-Chain audit pending</span>
+                        <span className="text-xs font-semibold">On-chain audit pending</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground">
-                        El incidente ya está atendido pero el sello criptográfico en Arkiv/Stellar
-                        aún no se grabó (la red puede estar congestionada). Refrescá esta
-                        ventana en unos segundos para ver el hash.
+                        The incident is attended but the cryptographic seal on Arkiv/Stellar
+                        has not been recorded yet (the network may be congested). Refresh
+                        this window in a few seconds to see the hash.
                       </p>
                     </div>
                   )}

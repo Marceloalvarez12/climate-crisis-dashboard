@@ -376,9 +376,9 @@ export function CrisisMap() {
             {viewMode === "activo" ? (
               <Badge variant="outline" className="text-[8px] h-4 border-primary/50 text-primary animate-pulse px-1.5">LIVE</Badge>
             ) : (
-              <Badge variant="outline" className="text-[8px] h-4 border-emerald-500/50 text-emerald-400 gap-1 px-1.5">
+              <Badge variant="outline" className="text-[8px] h-4 border-emerald-500/50 text-emerald-400 gap-1 px-1.5 font-mono">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                AUDITADO
+                ON-CHAIN
               </Badge>
             )}
           </div>
@@ -413,7 +413,7 @@ export function CrisisMap() {
                       {viewMode === "atendido" && (
                         incident.estado === "activo" ? (
                           <Badge variant="outline" className="text-[7px] h-3 px-1 border-yellow-500/40 text-yellow-400 font-mono shrink-0 animate-pulse">
-                            PENDIENTE
+                            PENDING
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[7px] h-3 px-1 border-emerald-500/30 text-emerald-400 font-mono shrink-0">

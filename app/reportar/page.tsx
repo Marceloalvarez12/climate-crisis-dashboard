@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { ShieldCheck, Loader2, ArrowLeft, AlertTriangle, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,28 +14,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import type { IncidentType, IncidentSeverity, ZkCitizenReport } from "@/lib/types"
 import { TUCUMAN_LOCATIONS_POOL } from "@/hooks/use-incident-simulator"
 
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || ""
 
-// San Miguel de Tucumán bounding box — used to derive a randomized
-// zone location from a citizen-supplied street description. The proof
-// proves membership in this box without revealing the exact point.
 const TUCUMAN_BBOX = { minLat: -27.0, maxLat: -26.5, minLng: -65.5, maxLng: -65.0 }
 
-// Pick a location that looks similar to the typed street. If the user
-// starts typing we surface a candidate from the pool, otherwise we pick
-// a random spot so the demo produces a fresh incident on each submit.
 function pickRandomLocation(seed: string) {
   let hash = 0
   for (let i = 0; i < seed.length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) | 0
   }
   const base = TUCUMAN_LOCATIONS_POOL[Math.abs(hash) % TUCUMAN_LOCATIONS_POOL.length]
-  // Small jitter (±0.002 deg ≈ ±200 m) so consecutive reports don't
-  // pile up on top of each other while staying inside the bbox.
   const jitterLat = (Math.random() - 0.5) * 0.004
   const jitterLng = (Math.random() - 0.5) * 0.004
   return {
@@ -114,102 +107,172 @@ export default function ReportarPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-2xl py-10">
-      <Card>
-        <CardHeader>
-          <CardTitle>Reporte anónimo verificable</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground mb-4">
-            Demostrá sin revelar tu ubicación exacta que estás dentro de una
-            zona de riesgo oficial. El proof se genera localmente con Circom +
-            Groth16 y se verifica on-chain contra el contrato Soroban
-            desplegado en Stellar testnet, así el reporte queda firmado y
-            consultable públicamente sin exponer tu punto exacto.
-          </p>
+    <div className="relative min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-neutral-950 to-black text-foreground antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+      {/* Background grid texture — same as auditoria/seguimiento */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="ubicacion">Calle o avenida</Label>
-              <Input
-                id="ubicacion"
-                name="ubicacion"
-                placeholder="Ej: Av. Sarmiento y San Martín"
-                value={ubicacion}
-                onChange={(e) => handleUbicacionChange(e.target.value)}
-                required
-              />
+      {/* Header */}
+      <header className="relative border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md px-6 py-4">
+        <div className="mx-auto max-w-4xl flex items-center justify-between">
+          <a href="/" className="flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Control Center
+          </a>
+          <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500">
+            <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+            ZK CIRCUIT · GROTH16
+          </div>
+        </div>
+      </header>
+
+      <main className="relative mx-auto max-w-3xl px-4 py-12 md:px-6">
+        {/* Title section */}
+        <div className="text-center space-y-3 mb-10">
+          <Badge className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/15 border-indigo-500/20 text-xs px-3 py-1 font-mono uppercase tracking-wider">
+            Anonymous Verifiable Report
+          </Badge>
+          <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-100 via-white to-zinc-400 sm:text-4xl">
+            ZK Citizen Report
+          </h1>
+          <p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-400">
+            Prove you are inside an official risk zone <span className="text-zinc-200">without revealing your exact location</span>.
+            The proof is generated locally (Circom + Groth16) and verified on Stellar Soroban — your report becomes publicly checkable while your position stays private.
+          </p>
+        </div>
+
+        {/* Form card */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 backdrop-blur-sm shadow-xl shadow-black/40">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Location */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="ubicacion" className="text-xs text-zinc-300">
+                  Street or avenue
+                </Label>
+                <span className="font-mono text-[9px] text-zinc-600">
+                  used to derive a risk-zone, never stored verbatim
+                </span>
+              </div>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  id="ubicacion"
+                  name="ubicacion"
+                  placeholder="Ej: Av. Sarmiento y San Martín"
+                  value={ubicacion}
+                  onChange={(e) => handleUbicacionChange(e.target.value)}
+                  className="h-11 border-zinc-700 bg-zinc-950/80 pl-9 font-mono text-sm placeholder-zinc-600 focus-visible:ring-indigo-500"
+                  required
+                />
+              </div>
               {picked && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Zona enboxada: <span className="font-mono">{picked.lat.toFixed(4)}, {picked.lng.toFixed(4)}</span>
-                </p>
+                <div className="flex items-center gap-1.5 rounded-md border border-indigo-500/20 bg-indigo-500/5 px-2.5 py-1.5 text-[10px]">
+                  <span className="font-mono text-indigo-300 tabular-nums">
+                    {picked.lat.toFixed(4)}, {picked.lng.toFixed(4)}
+                  </span>
+                  <span className="text-zinc-500">
+                    inside {picked.nombre} risk box
+                  </span>
+                </div>
               )}
             </div>
 
+            {/* Type + severity */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="tipo">Tipo de incidente</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="tipo" className="text-xs text-zinc-300">Incident type</Label>
                 <Select name="tipo" defaultValue="flood">
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11 border-zinc-700 bg-zinc-950/80">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="flood">Inundación</SelectItem>
-                    <SelectItem value="fire">Incendio</SelectItem>
-                    <SelectItem value="storm">Tormenta</SelectItem>
-                    <SelectItem value="accident">Accidente</SelectItem>
+                  <SelectContent className="border-zinc-700 bg-zinc-950">
+                    <SelectItem value="flood">Flood</SelectItem>
+                    <SelectItem value="fire">Fire</SelectItem>
+                    <SelectItem value="storm">Storm</SelectItem>
+                    <SelectItem value="accident">Accident</SelectItem>
                     <SelectItem value="general">General</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="severidad">Severidad</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="severidad" className="text-xs text-zinc-300">Severity</Label>
                 <Select name="severidad" defaultValue="medium">
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11 border-zinc-700 bg-zinc-950/80">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="critical">Crítica</SelectItem>
-                    <SelectItem value="high">Alta</SelectItem>
-                    <SelectItem value="medium">Media</SelectItem>
-                    <SelectItem value="low">Baja</SelectItem>
+                  <SelectContent className="border-zinc-700 bg-zinc-950">
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="personasAfectadas">Personas afectadas</Label>
-              <Input
-                id="personasAfectadas"
-                name="personasAfectadas"
-                type="number"
-                min={0}
-                defaultValue={0}
-              />
+            {/* People + description */}
+            <div className="grid grid-cols-[110px_1fr] gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="personasAfectadas" className="text-xs text-zinc-300">Affected</Label>
+                <Input
+                  id="personasAfectadas"
+                  name="personasAfectadas"
+                  type="number"
+                  min={0}
+                  defaultValue={0}
+                  className="h-11 border-zinc-700 bg-zinc-950/80 font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="descripcion" className="text-xs text-zinc-300">
+                  Description <span className="text-zinc-600">(optional)</span>
+                </Label>
+                <Textarea
+                  id="descripcion"
+                  name="descripcion"
+                  maxLength={500}
+                  rows={2}
+                  className="resize-none border-zinc-700 bg-zinc-950/80 text-sm placeholder-zinc-600"
+                  placeholder="What are you seeing right now?"
+                />
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="descripcion">Descripción (opcional)</Label>
-              <Textarea
-                id="descripcion"
-                name="descripcion"
-                maxLength={500}
-              />
-            </div>
-
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Generando proof..." : "Enviar reporte ZK"}
+            {/* Submit */}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="h-12 w-full bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-950/30 hover:bg-indigo-500"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating proof locally...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Send ZK Report
+                </>
+              )}
             </Button>
+
+            {/* Privacy footnote */}
+            <p className="flex items-center gap-1.5 text-center text-[10px] leading-relaxed text-zinc-600">
+              <ShieldCheck className="h-3 w-3 shrink-0 text-indigo-500/60" />
+              Circom Groth16 runs in your browser. Neither the server nor the chain ever sees
+              your exact point — only zone membership (bbox {TUCUMAN_BBOX.minLat}° to {TUCUMAN_BBOX.maxLat}°).
+            </p>
           </form>
 
           {error && (
-            <div className="mt-4 rounded border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-              {error}
+            <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-red-500/20 bg-red-950/20 p-4">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+              <p className="text-xs text-red-300">{error}</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </main>
     </div>
   )
 }
