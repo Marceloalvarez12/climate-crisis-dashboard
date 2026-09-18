@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react"
 import { MapContainer, TileLayer, Marker } from "react-leaflet"
 import type { Incident } from "@/lib/types"
 import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./leaflet-icon"
+import { HeatMapLayer } from "./heat-map-layer"
 
 const MAP_CENTER: [number, number] = [-26.8241, -65.2226]
 
@@ -14,10 +15,8 @@ interface TileConfig {
   label: string
   url: string
   attribution: string
-  /** CSS filter opcional para forzar look "dark táctico" sobre tiles claros */
   filter?: string
   maxZoom?: number
-  /** Provider de fallback si este falla (watermark rate limit etc) */
   fallbackUrl?: string
   fallbackAttribution?: string
   fallbackFilter?: string
@@ -35,8 +34,6 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
   street: {
     id: "street",
     label: "Oscuro",
-    // Esri World Dark Gray Canvas — color base uniforme, sin labels,
-    // sin overlay transparente. Una sola capa, simple, keyless, sin watermark.
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles © Esri — Esri, GARMIN, FAO, NOAA, USGS",
     maxZoom: 16,
@@ -52,8 +49,6 @@ const TILE_CONFIGS: Record<TileStyle, TileConfig> = {
   },
 }
 
-// Umbral de errores antes de hacer failover (Leaflet reintentará
-// tiles si es un problema transitorio; N errores seguidos sí es patrón)
 const TILE_ERROR_THRESHOLD = 8
 
 interface MapInnerProps {
@@ -111,6 +106,11 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
           maxZoom={config.maxZoom ?? 19}
           eventHandlers={{ tileerror: handleTileError }}
         />
+        {/* Heatmap layer — concentra incidentes cercanos en clusters visuales */}
+        <HeatMapLayer incidents={incidents} onHotspotClick={(ids) => {
+          const inc = incidents.find((i) => ids.includes(i.id))
+          if (inc) onMarkerClick(inc)
+        }} />
         {incidents.map((incident) => {
           const icon = createLeafletIcon(incident.severity, incident.type, incident.source)
           if (!icon) return null
