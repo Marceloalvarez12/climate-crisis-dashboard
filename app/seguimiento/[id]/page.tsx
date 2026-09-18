@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, ArrowLeft, ShieldCheck, ShieldAlert, Clock, MapPin, ExternalLink, Radio, CheckCircle2 } from "lucide-react"
+import { Loader2, ArrowLeft, ShieldCheck, ShieldAlert, Clock, MapPin, ExternalLink, Radio, CheckCircle2, Copy } from "lucide-react"
 import { toast } from "sonner"
 import type { DbIncident } from "@/lib/types"
 
@@ -37,6 +37,7 @@ export default function SeguimientoPage() {
 
   const [incident, setIncident] = useState<DbIncident | null>(null)
   const [loading, setLoading] = useState(true)
+  const [copiedId, setCopiedId] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -122,10 +123,17 @@ export default function SeguimientoPage() {
     low: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
   }
 
+  const copyTrackingId = () => {
+    navigator.clipboard.writeText(incident.id)
+    setCopiedId(true)
+    toast.success("Tracking ID copiado — guardalo para auditar tu reporte")
+    setTimeout(() => setCopiedId(false), 2000)
+  }
+
   const statusSteps = [
     { label: "Reporte recibido", done: true },
-    { label: "Verificaci\u00f3n ZK", done: !!audit.stellarZk?.verified },
-    { label: "En atenci\u00f3n", done: incident.estado !== "activo" },
+    { label: "Verificación ZK", done: !!audit.stellarZk?.verified },
+    { label: "En atención", done: incident.estado !== "activo" },
     { label: "Despacho auditado", done: !!audit.arkivDispatch },
     { label: "Resuelto", done: incident.estado === "atendido" },
   ]
@@ -134,11 +142,12 @@ export default function SeguimientoPage() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-neutral-950 to-black text-foreground antialiased">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
 
-      <header className="relative border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md px-6 py-4">
+      <header className="relative border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md px-4 py-4 md:px-6">
         <div className="mx-auto max-w-4xl flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors">
             <ArrowLeft className="h-4 w-4" />
-            Volver al Centro de Control
+            <span className="hidden sm:inline">Volver al Centro de Control</span>
+            <span className="sm:hidden">Inicio</span>
           </Link>
           <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500">
             <Radio className="h-3 w-3 text-emerald-400 animate-pulse" />
@@ -147,7 +156,7 @@ export default function SeguimientoPage() {
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-3xl px-4 py-10 md:px-6">
+      <main className="relative mx-auto max-w-3xl px-4 py-8 md:px-6 md:py-10">
         <div className="text-center space-y-3 mb-8">
           <Badge className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/15 border-indigo-500/20 text-xs px-3 py-1 font-mono uppercase tracking-wider">
             Reporte Ciudadano ZK
@@ -155,8 +164,20 @@ export default function SeguimientoPage() {
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
             Estado de tu reporte
           </h1>
-          <p className="text-xs md:text-sm text-zinc-400 font-mono break-all">
-            ID: {incident.id}
+          <div className="mx-auto flex max-w-full items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2">
+            <span className="text-[10px] font-mono lowercase tracking-wider text-zinc-500 shrink-0">ID</span>
+            <span className="min-w-0 break-all font-mono text-[11px] text-zinc-300">{incident.id}</span>
+            <button
+              onClick={copyTrackingId}
+              className="shrink-0 text-zinc-500 transition-colors hover:text-emerald-400"
+              title="Copiar tracking ID"
+            >
+              {copiedId ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          <p className="text-[10px] text-zinc-500 max-w-md mx-auto">
+            Guardá este ID y el hash de Stellar más abajo: son tu comprobante para auditar el reporte
+            y ver si fue contestado por el centro de control.
           </p>
         </div>
 
@@ -171,13 +192,13 @@ export default function SeguimientoPage() {
           <CardContent>
             <div className="relative">
               <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-zinc-800" />
-              <div className="space-y-6">
+              <div className="space-y-5 md:space-y-6">
                 {statusSteps.map((step, idx) => (
                   <div key={idx} className="relative flex items-start gap-4">
                     <div className={`relative z-10 h-6 w-6 rounded-full flex items-center justify-center border ${step.done ? "bg-emerald-500/20 border-emerald-500 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-600"}`}>
                       {step.done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span className="text-[10px]">{idx + 1}</span>}
                     </div>
-                    <div>
+                    <div className="min-w-0 pt-0.5">
                       <p className={`text-sm font-semibold ${step.done ? "text-zinc-200" : "text-zinc-500"}`}>
                         {step.label}
                       </p>
@@ -227,7 +248,7 @@ export default function SeguimientoPage() {
             <CardHeader>
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 {audit.stellarZk?.verified ? <ShieldCheck className="h-4 w-4 text-emerald-400" /> : <ShieldAlert className="h-4 w-4 text-zinc-400" />}
-                <span className={audit.stellarZk?.verified ? "text-emerald-400" : "text-zinc-300"}>Stellar ZK</span>
+                <span className={audit.stellarZk?.verified ? "text-emerald-400" : "text-zinc-300"}>Prueba ZK (Stellar)</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
@@ -235,8 +256,8 @@ export default function SeguimientoPage() {
                 <>
                   <p className="text-zinc-300">
                     {audit.stellarZk.verified
-                      ? "Proof Groth16 verificado. La ubicaci\u00f3n del reportante est\u00e1 dentro de la zona de riesgo oficial."
-                      : "Verificaci\u00f3n pendiente o fallida."}
+                      ? "Proof Groth16 verificado. La ubicación del reportante está dentro de la zona de riesgo oficial."
+                      : "Verificación pendiente o fallida."}
                   </p>
                   {audit.stellarZk.isSimulated ? (
                     <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[9px]">
@@ -248,29 +269,26 @@ export default function SeguimientoPage() {
                     </Badge>
                   )}
                   {audit.stellarZk.txHash && (
-                    <p className="text-[10px] text-zinc-500 font-mono break-all">
-                      TX: {audit.stellarZk.txHash.slice(0, 16)}…{audit.stellarZk.txHash.slice(-8)}
-                    </p>
+                    <div className="rounded-md border border-emerald-500/15 bg-black/30 p-2.5">
+                      <p className="text-[9px] uppercase tracking-wider text-emerald-500/60 font-semibold mb-1">Hash de proof</p>
+                      <p className="text-[10px] text-zinc-400 font-mono break-all leading-relaxed">
+                        {audit.stellarZk.txHash.length > 60
+                          ? `${audit.stellarZk.txHash.slice(0, 28)}…${audit.stellarZk.txHash.slice(-14)}`
+                          : audit.stellarZk.txHash}
+                      </p>
+                    </div>
                   )}
                   {audit.stellarZk.txExplorerUrl && (
-                    <Button variant="outline" size="sm" asChild className="h-7 text-[10px] border-emerald-500/20 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40 w-full">
+                    <Button variant="outline" size="sm" asChild className="h-8 text-[10px] border-emerald-500/20 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40 w-full">
                       <a href={audit.stellarZk.txExplorerUrl} target="_blank" rel="noopener noreferrer">
                         Ver TX en Stellar Expert
                         <ExternalLink className="h-3 w-3 ml-1.5" />
                       </a>
                     </Button>
                   )}
-                  {audit.stellarZk.explorerUrl && (
-                    <Button variant="outline" size="sm" asChild className="h-7 text-[10px] border-indigo-500/20 bg-indigo-950/20 text-indigo-400 hover:bg-indigo-950/40 w-full">
-                      <a href={audit.stellarZk.explorerUrl} target="_blank" rel="noopener noreferrer">
-                        Ver contrato en Stellar
-                        <ExternalLink className="h-3 w-3 ml-1.5" />
-                      </a>
-                    </Button>
-                  )}
                 </>
               ) : (
-                <p className="text-zinc-500">Este incidente no tiene verificaci\u00f3n ZK.</p>
+                <p className="text-zinc-500">Este incidente no tiene verificación ZK.</p>
               )}
             </CardContent>
           </Card>
@@ -279,24 +297,40 @@ export default function SeguimientoPage() {
             <CardHeader>
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 {audit.arkivDispatch ? <ShieldCheck className="h-4 w-4 text-blue-400" /> : <Clock className="h-4 w-4 text-zinc-400" />}
-                <span className={audit.arkivDispatch ? "text-blue-400" : "text-zinc-300"}>Arkiv Despacho</span>
+                <span className={audit.arkivDispatch ? "text-blue-400" : "text-zinc-300"}>Despacho (Arkiv)</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
               {audit.arkivDispatch ? (
                 <>
                   <p className="text-zinc-300">
-                    El despacho de recursos fue registrado en la blockchain de Arkiv.
+                    El despacho de recursos fue registrado en la blockchain de Arkiv:
+                    tu reporte fue <span className="font-semibold text-zinc-100">atendido</span>.
                   </p>
-                  <Button variant="outline" size="sm" asChild className="h-7 text-[10px] border-blue-500/20 bg-blue-950/20 text-blue-400 hover:bg-blue-950/40 w-full">
+                  <div className="rounded-md border border-blue-500/15 bg-black/30 p-2.5">
+                    <p className="text-[10px] uppercase tracking-wider text-blue-500/60 font-semibold mb-1">Entity key</p>
+                    <p className="text-[10px] text-zinc-400 font-mono break-all leading-relaxed">
+                      {audit.arkivDispatch.entityKey?.slice(0, 16)}…{audit.arkivDispatch.entityKey?.slice(-10)}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" asChild className="h-8 text-[10px] border-blue-500/20 bg-blue-950/20 text-blue-400 hover:bg-blue-950/40 w-full">
                     <a href={audit.arkivDispatch.explorerUrl} target="_blank" rel="noopener noreferrer">
-                      Ver en Arkiv
+                      Ver en Arkiv Explorer
                       <ExternalLink className="h-3 w-3 ml-1.5" />
                     </a>
                   </Button>
                 </>
               ) : (
-                <p className="text-zinc-500">A\u00fan no hay despacho auditado en Arkiv para este incidente.</p>
+                <div className="space-y-2">
+                  <p className="text-zinc-500">
+                    Tu reporte está en la cola de atención. Cuando el centro de control despache
+                    recursos, el sello de despacho aparecerá acá con su hash verificable.
+                  </p>
+                  <div className="flex items-center gap-2 font-mono text-[9px] text-zinc-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-600 animate-pulse" />
+                    Esperando respuesta del centro de control…
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -304,7 +338,11 @@ export default function SeguimientoPage() {
 
         <div className="mt-8 text-center">
           <p className="text-[10px] text-zinc-500">
-            Esta p\u00e1gina se actualiza autom\u00e1ticamente cada 10 segundos.
+            Esta página se actualiza automáticamente cada 10 segundos.
+            Con el ID y el hash podés auditar tu reporte en{" "}
+            <Link href={`/auditoria?key=${incident.id}`} className="text-emerald-500 hover:text-emerald-400">
+              Auditoría
+            </Link>.
           </p>
         </div>
       </main>

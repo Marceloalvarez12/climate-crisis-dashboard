@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ShieldCheck, Loader2, ArrowLeft, AlertTriangle, MapPin } from "lucide-react"
+import { ShieldCheck, Loader2, ArrowLeft, AlertTriangle, MapPin, Copy, Check, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { toast } from "sonner"
 import type { IncidentType, IncidentSeverity, ZkCitizenReport } from "@/lib/types"
 import { TUCUMAN_LOCATIONS_POOL } from "@/hooks/use-incident-simulator"
 
@@ -43,6 +44,104 @@ export default function ReportarPage() {
   const [error, setError] = useState<string | null>(null)
   const [ubicacion, setUbicacion] = useState("")
   const [picked, setPicked] = useState<{ nombre: string; lat: number; lng: number } | null>(null)
+  const [reportResult, setReportResult] = useState<{
+    incidentId: string
+    txHash: string | null
+    contractId: string | null
+    explorerUrl: string | null
+    trackingUrl: string
+  } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  // ── Success screen: mostrar el hash ANTES de ir al seguimiento ──
+  if (reportResult) {
+    const copyHash = () => {
+      if (reportResult.txHash) {
+        navigator.clipboard.writeText(reportResult.txHash)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }
+    }
+    return (
+      <div className="relative min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-neutral-950 to-black text-foreground antialiased">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        <main className="relative mx-auto max-w-lg px-4 py-24 md:px-6">
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-8 text-center shadow-2xl shadow-emerald-950/10">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
+              <ShieldCheck className="h-7 w-7 text-emerald-400" />
+            </div>
+            <h1 className="text-xl font-bold text-white">Report sealed on-chain</h1>
+            <p className="mt-1 text-xs text-emerald-300">
+              Your proof was verified and recorded. Save the hash below to audit this report anytime.
+            </p>
+
+            {/* Tracking ID */}
+            <div className="mt-6 space-y-1.5 text-left">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/70">Tracking ID</p>
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-black/40 px-3 py-2.5">
+                <span className="min-w-0 flex-1 break-all font-mono text-[11px] text-emerald-200">
+                  {reportResult.incidentId}
+                </span>
+                <button
+                  onClick={() => navigator.clipboard.writeText(reportResult.incidentId)}
+                  className="shrink-0 text-emerald-400/60 hover:text-emerald-300"
+                  title="Copy tracking ID"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* ZK proof hash */}
+            {reportResult.txHash && (
+              <div className="mt-4 space-y-1.5 text-left">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400/70">
+                  Proof hash
+                </p>
+                <div className="flex items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-950/20 px-3 py-2.5">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-indigo-200">
+                    {reportResult.txHash.length > 56
+                      ? `${reportResult.txHash.slice(0, 42)}…${reportResult.txHash.slice(-12)}`
+                      : reportResult.txHash}
+                  </span>
+                  <button onClick={copyHash} className="shrink-0 text-indigo-400/60 hover:text-indigo-300" title="Copy full hash">
+                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Links */}
+            <div className="mt-5 flex flex-col gap-2">
+              {reportResult.explorerUrl && (
+                <a
+                  href={reportResult.explorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  View proof on Stellar Soroban
+                </a>
+              )}
+              <button
+                onClick={() => router.push(reportResult.trackingUrl)}
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-950/30 transition-colors hover:bg-emerald-500"
+              >
+                Track my report live →
+              </button>
+              <button
+                onClick={() => location.reload()}
+                className="rounded-lg px-3 py-2 text-[11px] text-zinc-500 transition-colors hover:text-zinc-300"
+              >
+                Submit another report
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   function handleUbicacionChange(value: string) {
     setUbicacion(value)
@@ -92,9 +191,18 @@ export default function ReportarPage() {
         throw new Error(data.error || "Error sending report")
       }
 
-      const incidentId = (data?.incident as Record<string, unknown>)?.id as string
+      const incidentId =
+        ((data?.incident as Record<string, unknown>)?.id as string) ||
+        (data?.incidentId as string) ||
+        ""
       if (incidentId) {
-        router.push(`/seguimiento/${incidentId}`)
+        setReportResult({
+          incidentId,
+          txHash: (data?.txHash as string) || null,
+          contractId: (data?.contractId as string) || null,
+          explorerUrl: (data?.explorerUrl as string) || null,
+          trackingUrl: `/seguimiento/${incidentId}`,
+        })
         return
       }
 
@@ -178,7 +286,7 @@ export default function ReportarPage() {
             </div>
 
             {/* Type + severity */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="tipo" className="text-xs text-zinc-300">Incident type</Label>
                 <Select name="tipo" defaultValue="flood">
@@ -211,7 +319,7 @@ export default function ReportarPage() {
             </div>
 
             {/* People + description */}
-            <div className="grid grid-cols-[110px_1fr] gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[110px_1fr]">
               <div className="space-y-1.5">
                 <Label htmlFor="personasAfectadas" className="text-xs text-zinc-300">Affected</Label>
                 <Input

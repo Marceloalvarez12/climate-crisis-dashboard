@@ -235,7 +235,7 @@ export function IncidentDetailModal({
             {/* Scrollable body */}
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4">
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <StatCard icon={<Users className="h-4 w-4 mx-auto mb-1 text-primary" />} label="Affected">
                   {incident.affectedPeople.toLocaleString()}
                 </StatCard>
