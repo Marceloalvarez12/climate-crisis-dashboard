@@ -126,8 +126,12 @@ export async function POST(request: NextRequest): Promise<Response> {
           return { ...entry, verified: true, journalDigest }
         })()
 
+    // El fallback local construye su propio audit sin txHash — preservar el
+    // hash determinístico de verifyResult para que el ciudadano siempre
+    // tenga un comprobante auditable, incluso sin contrato configurado.
     const auditWithDispatch = {
       ...audit,
+      txHash: audit.txHash ?? verifyResult.txHash,
       verified: true,
       dispatchedAt: new Date().toISOString(),
     }

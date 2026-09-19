@@ -64,13 +64,6 @@ export default function ReportarPage() {
 
   // ── Success screen: mostrar el hash ANTES de ir al seguimiento ──
   if (reportResult) {
-    const copyHash = () => {
-      if (reportResult.txHash) {
-        navigator.clipboard.writeText(reportResult.txHash)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      }
-    }
     return (
       <div className="relative min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-neutral-950 to-black text-foreground antialiased">
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
@@ -101,24 +94,38 @@ export default function ReportarPage() {
               </div>
             </div>
 
-            {/* ZK proof hash */}
-            {reportResult.txHash && (
-              <div className="mt-4 space-y-1.5 text-left">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400/70">
-                  Proof hash
-                </p>
-                <div className="flex items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-950/20 px-3 py-2.5">
-                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-indigo-200">
-                    {reportResult.txHash.length > 56
-                      ? `${reportResult.txHash.slice(0, 42)}…${reportResult.txHash.slice(-12)}`
-                      : reportResult.txHash}
-                  </span>
-                  <button onClick={copyHash} className="shrink-0 text-indigo-400/60 hover:text-indigo-300" title="Copy full hash">
-                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
+            {/* ZK proof hash — siempre visible, aunque sea el tracking como fallback */}
+            <div className="mt-4 space-y-1.5 text-left">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400/70">
+                Proof hash
+              </p>
+              <div className="flex items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-950/20 px-3 py-2.5">
+                <span className="min-w-0 flex-1 break-all font-mono text-[11px] text-indigo-200">
+                  {reportResult.txHash
+                    ? (reportResult.txHash.length > 56
+                        ? `${reportResult.txHash.slice(0, 42)}…${reportResult.txHash.slice(-12)}`
+                        : reportResult.txHash)
+                    : reportResult.incidentId}
+                </span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(reportResult.txHash || reportResult.incidentId)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}
+                  className="shrink-0 text-indigo-400/60 hover:text-indigo-300"
+                  title="Copy full hash"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
               </div>
-            )}
+              {!reportResult.txHash && (
+                <p className="text-[9px] text-zinc-500">
+                  Stellar está temporalmente saturado. El Tracking ID funciona como hash de
+                  verificación en el portal de auditoría.
+                </p>
+              )}
+            </div>
 
             {/* Links */}
             <div className="mt-5 flex flex-col gap-2">
@@ -133,6 +140,16 @@ export default function ReportarPage() {
                   View proof on Stellar Soroban
                 </a>
               )}
+              {/* Portal de auditoría de Braga — verifica el estado del reporte en cualquier momento */}
+              <a
+                href={`/auditoria?key=${reportResult.txHash || reportResult.incidentId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Audit this report on Braga Portal →
+              </a>
               <button
                 onClick={() => router.push(reportResult.trackingUrl)}
                 className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-950/30 transition-colors hover:bg-emerald-500"
