@@ -53,6 +53,7 @@ export interface ZkCitizenReport {
   ubicacion: string
   personasAfectadas: number
   descripcion?: string
+  contacto?: string
   zoneHash?: number
   minLat?: number
   maxLat?: number

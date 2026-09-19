@@ -14,6 +14,7 @@ const ZkReportSchema = z.object({
   ubicacion: z.string().min(2).max(200),
   personasAfectadas: z.number().int().min(0).default(0),
   descripcion: z.string().max(500).optional(),
+  contacto: z.string().email().optional(),
   zoneHash: z.number().int().default(12345),
   minLat: z.number().default(-27.0),
   maxLat: z.number().default(-26.5),
@@ -159,12 +160,45 @@ export async function POST(request: NextRequest): Promise<Response> {
       estado: "activo",
       fuente_detalles: {
         descripcion: params.descripcion,
+        contacto: params.contacto,
         zk_proof: contractProof,
         zk_public_signals: publicSignals,
         zk_input: input,
         stellar_audit: auditWithDispatch,
       },
     })
+
+    // ── Enviar hash + link de auditoría por email ──
+    // El mail es conveniencia: si falla, el reporte ya existe y el front
+    // muestra el hash de todas formas. Esperamos hasta 5s para poder
+    // informar el status al usuario; después de eso seguimos sin el mail.
+    let mailStatus: "sent" | "failed" | undefined
+    if (params.contacto) {
+      try {
+        const origin = new URL(request.url).origin
+        const { buildReportConfirmationEmail, sendMail } = await import("@/lib/services/resend-service")
+        const mail = buildReportConfirmationEmail({
+          incidentId: incident.id,
+          txHash: auditWithDispatch.txHash || auditWithDispatch.journalDigest || incident.id,
+          auditUrl: `${origin}/auditoria?key=${auditWithDispatch.txHash || incident.id}`,
+          trackingUrl: `${origin}/seguimiento/${incident.id}`,
+          tipo: params.tipo,
+          severidad: params.severidad,
+          ubicacion: params.ubicacion,
+        })
+        const result = await Promise.race([
+          sendMail(params.contacto, mail.subject, mail.html),
+          new Promise<{ sent: false; reason: string }>((resolve) =>
+            setTimeout(() => resolve({ sent: false, reason: "timeout_5s" }), 5000),
+          ),
+        ])
+        mailStatus = result.sent ? "sent" : "failed"
+        if (!result.sent) console.warn(`[ZK Report] Mail a ${params.contacto}: ${result.reason}`)
+      } catch (mailErr) {
+        console.warn("[ZK Report] Mail error:", mailErr)
+        mailStatus = "failed"
+      }
+    }
 
     return apiSuccess({
       incident,
@@ -173,6 +207,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       contractId: auditWithDispatch.contractId,
       explorerUrl: auditWithDispatch.explorerUrl,
       txHash: auditWithDispatch.txHash,
+      mail: mailStatus,
+      mailTo: mailStatus ? params.contacto : undefined,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "ZK report failed"

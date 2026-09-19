@@ -59,6 +59,8 @@ export default function ReportarPage() {
     contractId: string | null
     explorerUrl: string | null
     trackingUrl: string
+    mailStatus?: "sent" | "failed"
+    mailTo?: string
   } | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -76,6 +78,15 @@ export default function ReportarPage() {
             <p className="mt-1 text-xs text-emerald-300">
               Your proof was verified and recorded. Save the hash below to audit this report anytime.
             </p>
+            {reportResult.mailStatus && (
+              <p className="mt-2 text-[11px] text-zinc-400">
+                {reportResult.mailStatus === "sent"
+                  ? `📩 Enviado a ${reportResult.mailTo} — buscá el mail de Zntinel con tu hash y links.`
+                  : reportResult.mailStatus === "failed"
+                    ? `⚠ No pudimos enviar el mail a ${reportResult.mailTo}. Guardá el hash de abajo manualmente.`
+                    : null}
+              </p>
+            )}
 
             {/* Tracking ID */}
             <div className="mt-6 space-y-1.5 text-left">
@@ -196,6 +207,7 @@ export default function ReportarPage() {
       ubicacion: location.nombre,
       personasAfectadas: parseInt(form.get("personasAfectadas") as string) || 0,
       descripcion: (form.get("descripcion") as string) || undefined,
+      contacto: ((form.get("contacto") as string) || "").trim() || undefined,
       zoneHash: 12345,
       minLat: TUCUMAN_BBOX.minLat,
       maxLat: TUCUMAN_BBOX.maxLat,
@@ -229,6 +241,8 @@ export default function ReportarPage() {
           contractId: (data?.contractId as string) || null,
           explorerUrl: (data?.explorerUrl as string) || null,
           trackingUrl: `/seguimiento/${incidentId}`,
+          mailStatus: (data?.mail as "sent" | "failed" | undefined) || undefined,
+          mailTo: (data?.mailTo as string) || undefined,
         })
         return
       }
@@ -371,6 +385,25 @@ export default function ReportarPage() {
                   placeholder="What are you seeing right now?"
                 />
               </div>
+            </div>
+
+            {/* Contacto: para recibir el hash + link de auditoría por email */}
+            <div className="space-y-1.5">
+              <Label htmlFor="contacto" className="text-xs text-zinc-300">
+                Email <span className="text-zinc-600">(opcional)</span>
+              </Label>
+              <Input
+                id="contacto"
+                name="contacto"
+                type="email"
+                maxLength={200}
+                className="h-11 border-zinc-700 bg-zinc-950/80 text-sm placeholder-zinc-600"
+                placeholder="tu@email.com"
+              />
+              <p className="text-[10px] text-zinc-600">
+                Te enviamos el hash del reporte y el link de auditoría para verificar el estado
+                cuando quieras. Se guarda asociado al reporte — nunca se publica.
+              </p>
             </div>
 
             {/* Submit */}
