@@ -16,7 +16,7 @@ const PICKER_STYLES = `
   .picker-map .leaflet-tooltip-pane,
   .picker-map .leaflet-popup-pane { position: absolute; left: 0; top: 0; }
   .picker-map .leaflet-tile-container { position: absolute; left: 0; top: 0; }
-  .picker-map .leaflet-tile { position: absolute; width: 256px !important; height: 256px !important; max-width: none !important; border: 0; filter: brightness(0.82) contrast(1.08) saturate(0.85); }
+  .picker-map .leaflet-tile { position: absolute; width: 256px !important; height: 256px !important; max-width: none !important; border: 0; filter: brightness(0.48) contrast(1.18) saturate(0.2); }
   .picker-map .leaflet-marker-icon,
   .picker-map .leaflet-marker-shadow { display: block; position: absolute; }
   .picker-map .leaflet-control-attribution { background: rgba(23,23,23,0.8) !important; color: #737373 !important; }
@@ -137,9 +137,9 @@ export function LocationPickerMap({ initial, onChange, height = 260 }: LocationP
       <style>{PICKER_STYLES}</style>
       <MapContainer center={position} zoom={15} scrollWheelZoom className="!h-full !w-full" style={{ height: "100%", width: "100%" }}>
         <TileLayer
-          attribution="© OpenStreetMap © CARTO"
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          maxZoom={20}
+          attribution='© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
         <ClickCapture onPick={updateAt} />
         <DraggableMarker position={position} onPositionChange={updateAt} />
