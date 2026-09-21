@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ShieldCheck, Loader2, ArrowLeft, AlertTriangle, MapPin, Copy, Check, ExternalLink } from "lucide-react"
+import dynamic from "next/dynamic"
+import { ShieldCheck, Loader2, ArrowLeft, AlertTriangle, MapPin, Crosshair, Copy, Check, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +19,19 @@ import { Badge } from "@/components/ui/badge"
 import type { IncidentType, IncidentSeverity, ZkCitizenReport } from "@/lib/types"
 
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || ""
+
+// Mini-mapa con pin arrastrable — carga client-side only (Leaflet toca window)
+const LocationPickerMap = dynamic(
+  () => import("@/components/reportar/location-picker-map").then((m) => m.LocationPickerMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[260px] items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/60">
+        <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+      </div>
+    ),
+  },
+)
 
 const TUCUMAN_BBOX = { minLat: -27.0, maxLat: -26.5, minLng: -65.5, maxLng: -65.0 }
 
@@ -73,6 +87,8 @@ export default function ReportarPage() {
   const [error, setError] = useState<string | null>(null)
   const [ubicacion, setUbicacion] = useState("")
   const [picked, setPicked] = useState<GeocodedLocation | null>(null)
+  // Pin movido manualmente por el usuario — tiene prioridad sobre el geocode
+  const [manualPick, setManualPick] = useState<GeocodedLocation | null>(null)
   const [reportResult, setReportResult] = useState<{
     incidentId: string
     txHash: string | null
@@ -203,6 +219,7 @@ export default function ReportarPage() {
   function handleUbicacionChange(value: string) {
     setUbicacion(value)
     setPicked(null)
+    setManualPick(null)
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -212,9 +229,18 @@ export default function ReportarPage() {
 
     const form = new FormData(e.currentTarget)
     const street = (form.get("ubicacion") as string).trim()
-    const location = await geocodeAddress(street)
+
+    // Prioridad: pin movido manualmente > resultado de Nominatim
+    let location: GeocodedLocation | null = manualPick
+    let geocodeFailed = false
     if (!location) {
-      setError("No pudimos ubicar esa dirección en San Miguel de Tucumán. Verificá la calle y altura o esquina.")
+      location = await geocodeAddress(street)
+      geocodeFailed = !location
+    }
+    if (!location) {
+      setError(
+        "No pudimos ubicar esa dirección en San Miguel de Tucumán. Ajustá el pin en el mapa a la ubicación exacta y volvé a enviar.",
+      )
       setLoading(false)
       return
     }
@@ -344,6 +370,27 @@ export default function ReportarPage() {
                   </span>
                 </div>
               )}
+              {manualPick && (
+                <div className="flex items-center gap-1.5 rounded-md border border-amber-500/25 bg-amber-500/5 px-2.5 py-1.5 text-[10px]">
+                  <Crosshair className="h-3 w-3 shrink-0 text-amber-400" />
+                  <span className="font-mono text-amber-300 tabular-nums">
+                    {manualPick.lat.toFixed(4)}, {manualPick.lng.toFixed(4)}
+                  </span>
+                  <span className="text-zinc-500">ubicación marcada manualmente</span>
+                </div>
+              )}
+            </div>
+
+            {/* Mapa con pin arrastrable — el ciudadano confirma/ajusta la ubicación exacta */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-zinc-300">
+                Ubicación exacta <span className="text-zinc-600">(arrastrá el pin o hacé click en el mapa)</span>
+              </Label>
+              <LocationPickerMap
+                initial={picked ?? { lat: -26.8241, lng: -65.2226, nombre: "San Miguel de Tucumán" }}
+                onChange={(v) => setManualPick({ lat: v.lat, lng: v.lng, nombre: v.nombre })}
+                height={260}
+              />
             </div>
 
             {/* Type + severity */}
