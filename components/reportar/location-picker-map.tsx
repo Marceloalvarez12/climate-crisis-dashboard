@@ -8,7 +8,7 @@ import { Crosshair, Loader2 } from "lucide-react"
 // Estilos Leaflet: mismo look oscuro táctico que el mapa principal
 const PICKER_STYLES = `
   .picker-map .leaflet-container { height: 100%; width: 100%; background: #0a0c10; border-radius: 8px; }
-  .picker-map .leaflet-tile { filter: brightness(0.55) contrast(1.15) saturate(0.7) hue-rotate(190deg); }
+  .picker-map .leaflet-tile { filter: brightness(0.6) contrast(1.1) saturate(0.75) hue-rotate(185deg); }
   .picker-map .leaflet-control-attribution { background: rgba(23,23,23,0.8) !important; color: #737373 !important; }
   .picker-map .leaflet-control-zoom a { background: #171717 !important; color: #fafafa !important; border-color: #2a2a2a !important; }
   .picker-pin { background: transparent; border: none; }
@@ -127,9 +127,9 @@ export function LocationPickerMap({ initial, onChange, height = 260 }: LocationP
       <style>{PICKER_STYLES}</style>
       <MapContainer center={position} zoom={15} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
         <TileLayer
-          attribution="Tiles © Esri — Esri, GARMIN, FAO, NOAA, USGS"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-          maxZoom={16}
+          attribution="Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={19}
         />
         <ClickCapture onPick={updateAt} />
         <DraggableMarker position={position} onPositionChange={updateAt} />
