@@ -424,7 +424,7 @@ export function CrisisMap() {
 
       {/* ── Leaflet Map ─────────────────────────────────────────────── */}
       {isClient && leafletCssLoaded ? (
-        <div className="h-[400px] w-full shrink-0 md:h-full md:flex-1 md:pt-10">
+        <div className="h-[min(70vh,680px)] min-h-[420px] w-full shrink-0 md:h-[min(70vh,680px)] md:flex-none md:pt-10">
           <MapInner
             incidents={filteredIncidents}
             onMarkerClick={(incident) => setSelectedIncident(incident)}
@@ -432,7 +432,7 @@ export function CrisisMap() {
           />
         </div>
       ) : (
-        <div className="flex h-[400px] w-full shrink-0 items-center justify-center bg-secondary/20 md:h-full md:flex-1">
+        <div className="flex h-[min(70vh,680px)] min-h-[420px] w-full shrink-0 items-center justify-center bg-secondary/20 md:h-[min(70vh,680px)] md:flex-none">
           <div className="flex flex-col items-center gap-2">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             <p className="text-sm text-muted-foreground">Loading map...</p>
