@@ -24,27 +24,47 @@ const TUCUMAN_BBOX = { minLat: -27.0, maxLat: -26.5, minLng: -65.5, maxLng: -65.
 type GeocodedLocation = { nombre: string; lat: number; lng: number }
 
 async function geocodeAddress(address: string): Promise<GeocodedLocation | null> {
-  const query = `${address}, San Miguel de Tucumán, Tucumán, Argentina`
-  const params = new URLSearchParams({
-    q: query,
-    format: "jsonv2",
-    limit: "1",
-    countrycodes: "ar",
-    viewbox: `${TUCUMAN_BBOX.minLng},${TUCUMAN_BBOX.maxLat},${TUCUMAN_BBOX.maxLng},${TUCUMAN_BBOX.minLat}`,
-    bounded: "1",
-  })
-  try {
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-      headers: { Accept: "application/json" },
-    })
-    if (!response.ok) return null
-    const results = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>
-    const result = results[0]
-    if (!result) return null
-    return { nombre: result.display_name, lat: Number(result.lat), lng: Number(result.lon) }
-  } catch {
-    return null
+  // Nominatim exige User-Agent propio en sus ToS — sin él bloquea a 0 resultados.
+  // Probe con varias estrategias en orden: provincia → bbox Tucumán → sin bbox.
+  const queries = [
+    `${address}, San Miguel de Tucumán, Tucumán, Argentina`,
+    `${address}, Tucumán, Argentina`,
+    `${address}, Argentina`,
+    address,
+  ]
+  for (const q of queries) {
+    const params = new URLSearchParams({ q: q, format: "jsonv2", limit: "1", countrycodes: "ar" })
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+        {
+          headers: {
+            "User-Agent": "Zntinel-Dashboard/1.0 (crisis reporting)",
+            "Accept-Language": "es",
+            Accept: "application/json",
+          },
+        },
+      )
+      if (!response.ok) continue
+      const results = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>
+      if (!results.length) continue
+      const r = results[0]
+      const lat = Number(r.lat)
+      const lng = Number(r.lon)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+      // Acepta resultados dentro del bbox con ~0.1° de margen para Yerba Buena, San Javier, etc.
+      const inBbox =
+        lat >= TUCUMAN_BBOX.minLat - 0.1 &&
+        lat <= TUCUMAN_BBOX.maxLat + 0.1 &&
+        lng >= TUCUMAN_BBOX.minLng - 0.1 &&
+        lng <= TUCUMAN_BBOX.maxLng + 0.1
+      if (!inBbox) continue
+      return { nombre: r.display_name, lat, lng }
+    } catch {
+      continue
+    }
   }
+  return null
 }
 
 export default function ReportarPage() {
