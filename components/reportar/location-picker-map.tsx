@@ -7,8 +7,18 @@ import { Crosshair, Loader2 } from "lucide-react"
 
 // Estilos Leaflet: mismo look oscuro táctico que el mapa principal
 const PICKER_STYLES = `
-  .picker-map .leaflet-container { height: 100%; width: 100%; background: #0a0c10; border-radius: 8px; }
-  .picker-map .leaflet-tile { filter: brightness(0.6) contrast(1.1) saturate(0.75) hue-rotate(185deg); }
+  .picker-map .leaflet-container { height: 100%; width: 100%; background: #0a0c10; border-radius: 8px; position: relative; overflow: hidden; }
+  .picker-map .leaflet-pane,
+  .picker-map .leaflet-tile-pane,
+  .picker-map .leaflet-overlay-pane,
+  .picker-map .leaflet-shadow-pane,
+  .picker-map .leaflet-marker-pane,
+  .picker-map .leaflet-tooltip-pane,
+  .picker-map .leaflet-popup-pane { position: absolute; left: 0; top: 0; }
+  .picker-map .leaflet-tile-container { position: absolute; left: 0; top: 0; }
+  .picker-map .leaflet-tile { position: absolute; width: 256px !important; height: 256px !important; max-width: none !important; border: 0; filter: brightness(0.82) contrast(1.08) saturate(0.85); }
+  .picker-map .leaflet-marker-icon,
+  .picker-map .leaflet-marker-shadow { display: block; position: absolute; }
   .picker-map .leaflet-control-attribution { background: rgba(23,23,23,0.8) !important; color: #737373 !important; }
   .picker-map .leaflet-control-zoom a { background: #171717 !important; color: #fafafa !important; border-color: #2a2a2a !important; }
   .picker-pin { background: transparent; border: none; }
@@ -125,11 +135,11 @@ export function LocationPickerMap({ initial, onChange, height = 260 }: LocationP
   return (
     <div className="picker-map overflow-hidden rounded-lg border border-zinc-700" style={{ height }}>
       <style>{PICKER_STYLES}</style>
-      <MapContainer center={position} zoom={15} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+      <MapContainer center={position} zoom={15} scrollWheelZoom className="!h-full !w-full" style={{ height: "100%", width: "100%" }}>
         <TileLayer
-          attribution="Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          maxZoom={19}
+          attribution="© OpenStreetMap © CARTO"
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          maxZoom={20}
         />
         <ClickCapture onPick={updateAt} />
         <DraggableMarker position={position} onPositionChange={updateAt} />
