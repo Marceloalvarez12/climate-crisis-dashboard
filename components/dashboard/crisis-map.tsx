@@ -379,7 +379,7 @@ export function CrisisMap() {
                 <select
                   value={historyType}
                   onChange={(event) => setHistoryType(event.target.value as IncidentType | "all")}
-                  className="h-5 max-w-[108px] cursor-pointer appearance-none bg-transparent pr-4 text-[9px] font-semibold text-foreground outline-none [background-image:linear-gradient(45deg,transparent_50%,currentColor_50%),linear-gradient(135deg,currentColor_50%,transparent_50%)] [background-position:calc(100%-7px)_8px,calc(100%-3px)_8px] [background-size:4px_4px,4px_4px] [background-repeat:no-repeat] focus:text-accent"
+                  className="h-5 max-w-[108px] cursor-pointer appearance-none bg-transparent pr-4 text-[9px] font-semibold text-foreground outline-none [color-scheme:dark] [background-image:linear-gradient(45deg,transparent_50%,currentColor_50%),linear-gradient(135deg,currentColor_50%,transparent_50%)] [background-position:calc(100%-7px)_8px,calc(100%-3px)_8px] [background-size:4px_4px,4px_4px] [background-repeat:no-repeat] focus:text-accent [&>option]:bg-[#080b0d] [&>option]:text-foreground"
                   aria-label="Filter history by incident type"
                 >
                   <option value="all">All types</option>
