@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { toast } from "sonner"
-import type { Incident, IncidentSource, DbIncident } from "@/lib/types"
+import type { Incident, IncidentSource, IncidentType, DbIncident } from "@/lib/types"
 import { useIncidents, useResources } from "./crisis-map/use-map-data"
 import { IncidentIcon, SourceIcon, severityColorClass, sourceLabel, incidentTypeLabel } from "./crisis-map/incident-helpers"
 import { IncidentDetailModal, DeployModal } from "./crisis-map/map-modals"
@@ -34,6 +34,15 @@ const MapInner = dynamic(
 
 const MAP_CENTER: [number, number] = [-26.8241, -65.2226]
 const SOURCE_TYPES: IncidentSource[] = ["social", "sensor", "camera", "citizen"]
+const INCIDENT_TYPES: Array<{ value: IncidentType; label: string }> = [
+  { value: "flood", label: "Flood" },
+  { value: "fire", label: "Fire" },
+  { value: "storm", label: "Storm" },
+  { value: "looting", label: "Looting" },
+  { value: "violence", label: "Violence" },
+  { value: "accident", label: "Accident" },
+  { value: "general", label: "General" },
+]
 
 const SEVERITY_LEGENDS = [
   { label: "Critical", color: "bg-primary" },
@@ -53,6 +62,7 @@ export function CrisisMap() {
   const [showDeployModal,    setShowDeployModal]     = useState(false)
   const [showBlockchainModal, setShowBlockchainModal] = useState(false)
   const [viewMode,           setViewMode]           = useState<"activo" | "atendido">("activo")
+  const [historyType,        setHistoryType]        = useState<IncidentType | "all">("all")
   const [activeLayers,       setActiveLayers]       = useState<IncidentSource[]>(["social", "sensor", "camera", "citizen"])
   const [tileStyle, setTileStyle] = useState<("satellite" | "street" | "topo")>("street")
   const [deployingResources, setDeployingResources] = useState(false)
@@ -121,8 +131,10 @@ export function CrisisMap() {
   }
 
   const filteredIncidents = useMemo(
-    () => incidents.filter((i) => activeLayers.includes(i.source)),
-    [incidents, activeLayers]
+    () => incidents.filter((i) =>
+      activeLayers.includes(i.source) && (historyType === "all" || i.type === historyType)
+    ),
+    [incidents, activeLayers, historyType]
   )
 
   const sourceCounts = useMemo(() => {
@@ -355,10 +367,28 @@ export function CrisisMap() {
               History ({viewMode === "atendido" ? filteredIncidents.length : 0})
             </button>
           </div>
-          <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/10">
+          <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-secondary/10">
             <p className="text-[9px] font-medium text-muted-foreground">
               {viewMode === "activo" ? "Real-Time Monitoring" : "On-Chain Audit Trail"}
             </p>
+            {viewMode === "atendido" && (
+              <label className="group flex items-center gap-1.5 rounded-md border border-accent/25 bg-accent/5 px-2 py-1 text-[9px] text-accent shadow-[0_0_14px_rgba(255,51,74,0.08)] transition-colors hover:border-accent/50 hover:bg-accent/10">
+                <Eye className="size-3 shrink-0 opacity-80" aria-hidden="true" />
+                <span className="sr-only">Filter history by incident type</span>
+                <span className="hidden text-[8px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:inline">Type</span>
+                <select
+                  value={historyType}
+                  onChange={(event) => setHistoryType(event.target.value as IncidentType | "all")}
+                  className="h-5 max-w-[108px] cursor-pointer appearance-none bg-transparent pr-4 text-[9px] font-semibold text-foreground outline-none [color-scheme:dark] [background-image:linear-gradient(45deg,transparent_50%,currentColor_50%),linear-gradient(135deg,currentColor_50%,transparent_50%)] [background-position:calc(100%-7px)_8px,calc(100%-3px)_8px] [background-size:4px_4px,4px_4px] [background-repeat:no-repeat] focus:text-accent [&>option]:bg-[#080b0d] [&>option]:text-foreground"
+                  aria-label="Filter history by incident type"
+                >
+                  <option value="all">All types</option>
+                  {INCIDENT_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             {viewMode === "activo" ? (
               <Badge variant="outline" className="text-[8px] h-4 border-primary/50 text-primary animate-pulse px-1.5">LIVE</Badge>
             ) : (
