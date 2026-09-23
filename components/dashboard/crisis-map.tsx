@@ -372,12 +372,14 @@ export function CrisisMap() {
               {viewMode === "activo" ? "Real-Time Monitoring" : "On-Chain Audit Trail"}
             </p>
             {viewMode === "atendido" && (
-              <label className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+              <label className="group flex items-center gap-1.5 rounded-md border border-accent/25 bg-accent/5 px-2 py-1 text-[9px] text-accent shadow-[0_0_14px_rgba(255,51,74,0.08)] transition-colors hover:border-accent/50 hover:bg-accent/10">
+                <Eye className="size-3 shrink-0 opacity-80" aria-hidden="true" />
                 <span className="sr-only">Filter history by incident type</span>
+                <span className="hidden text-[8px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:inline">Type</span>
                 <select
                   value={historyType}
                   onChange={(event) => setHistoryType(event.target.value as IncidentType | "all")}
-                  className="h-6 max-w-[118px] rounded border border-border bg-background px-1.5 text-[9px] text-foreground outline-none focus:border-accent"
+                  className="h-5 max-w-[108px] cursor-pointer appearance-none bg-transparent pr-4 text-[9px] font-semibold text-foreground outline-none [background-image:linear-gradient(45deg,transparent_50%,currentColor_50%),linear-gradient(135deg,currentColor_50%,transparent_50%)] [background-position:calc(100%-7px)_8px,calc(100%-3px)_8px] [background-size:4px_4px,4px_4px] [background-repeat:no-repeat] focus:text-accent"
                   aria-label="Filter history by incident type"
                 >
                   <option value="all">All types</option>
