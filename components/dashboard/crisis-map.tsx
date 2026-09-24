@@ -185,11 +185,20 @@ export function CrisisMap() {
     setShowBlockchainModal(true)
   }
 
+  const handleMarkerClick = (incident: Incident) => {
+    const scrollY = window.scrollY
+    setSelectedIncident(incident)
+    // Radix focus management can scroll the map's trigger into view when the detail dialog opens.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: "instant" })
+      setTimeout(() => window.scrollTo({ top: scrollY, behavior: "instant" }), 0)
+    })
+  }
+
   const handleCloseConfirmDispatch = () => {
     setShowBlockchainModal(false)
     setSelectedIncident(null)
     setSelectedCounts({})
-    mutateRecursos()
   }
 
   const handleDeployResources = async () => {
@@ -457,7 +466,7 @@ export function CrisisMap() {
         <div className="h-[min(70vh,680px)] min-h-[420px] w-full shrink-0 md:h-[min(70vh,680px)] md:flex-none md:pt-10">
           <MapInner
             incidents={filteredIncidents}
-            onMarkerClick={(incident) => setSelectedIncident(incident)}
+            onMarkerClick={handleMarkerClick}
             tileStyle={tileStyle}
           />
         </div>
