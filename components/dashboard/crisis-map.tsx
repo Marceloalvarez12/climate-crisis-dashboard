@@ -258,9 +258,9 @@ export function CrisisMap() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden rounded-lg border border-border bg-card">
+    <div className="relative flex h-full w-full flex-col overflow-visible rounded-lg border border-border bg-card">
       {/* ── Map header ─────────────────────────────────────────────── */}
-      <div className="relative z-[1000] flex min-h-12 w-full shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border bg-card px-3 py-2">
+      <div className="sticky top-0 z-[1000] flex min-h-12 w-full shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border bg-card px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
           <h2 className="truncate text-xs font-semibold text-foreground sm:text-sm">
@@ -463,7 +463,7 @@ export function CrisisMap() {
 
       {/* ── Leaflet Map ─────────────────────────────────────────────── */}
       {isClient && leafletCssLoaded ? (
-        <div className="h-[min(70vh,680px)] min-h-[420px] w-full shrink-0 md:h-[min(70vh,680px)] md:flex-none">
+        <div className="relative isolate h-[min(70vh,680px)] min-h-[420px] w-full shrink-0 overscroll-contain md:h-[min(70vh,680px)] md:flex-none">
           <MapInner
             incidents={filteredIncidents}
             onMarkerClick={handleMarkerClick}

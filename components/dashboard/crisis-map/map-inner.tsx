@@ -112,6 +112,13 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
         zoom={13}
         scrollWheelZoom
         preferCanvas={false}
+        eventHandlers={{
+          click: (event) => {
+            const scrollY = window.scrollY
+            requestAnimationFrame(() => window.scrollTo({ top: scrollY, behavior: "instant" }))
+            event.originalEvent.preventDefault()
+          },
+        }}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
