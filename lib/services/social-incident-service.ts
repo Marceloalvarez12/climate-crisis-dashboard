@@ -41,6 +41,7 @@ const TYPE_MAP: Record<string, string> = {
   looting:    "looting",
   violence:   "violence",
   earthquake: "general",
+  general:    "general",
   none:       "general",
 }
 
@@ -52,6 +53,8 @@ export const PLATFORM_LABELS: Record<SocialPlatform, string> = {
   instagram: "Instagram",
   tiktok:    "TikTok",
   mock:      "Feed simulado",
+  usgs:      "USGS Earthquake Feed",
+  eonet:     "NASA EONET",
 }
 
 // Import diferido: permite usar el pipeline en modo dryRun sin credenciales de Supabase
@@ -93,9 +96,12 @@ export interface IngestOptions {
 }
 
 export async function ingestSocialPost(post: SocialPost, { dryRun = false }: IngestOptions = {}): Promise<MentionOutcome> {
-  const base = { postId: post.id, platform: post.platform, author: post.author, hashtag: TRIGGER_HASHTAG }
+  // Fuentes autoritativas (USGS, EONET) no usan hashtag: su propia API
+  // es la verificación. El campo `hashtag` del outcome refleja qué lo disparó.
+  const trigger = post.trusted ? PLATFORM_LABELS[post.platform] ?? post.platform : TRIGGER_HASHTAG
+  const base = { postId: post.id, platform: post.platform, author: post.author, hashtag: trigger }
 
-  if (!containsTriggerHashtag(post.text)) {
+  if (!post.trusted && !containsTriggerHashtag(post.text)) {
     return { ...base, status: "ignored", reason: `El post no contiene ${TRIGGER_HASHTAG}` }
   }
 
@@ -111,7 +117,10 @@ export async function ingestSocialPost(post: SocialPost, { dryRun = false }: Ing
     if (dup?.length) return { ...base, status: "duplicate", incidentId: dup[0].id, reason: "Post ya procesado" }
   }
 
-  const { analysis, analyzer } = await analyze(post)
+  // Fuentes trusted traen su propio análisis determinístico
+  const { analysis, analyzer } = post.preAnalysis
+    ? { analysis: post.preAnalysis, analyzer: "api" as const }
+    : await analyze(post)
 
   if (!analysis.isIncident || analysis.confidence < CONFIG.AI.MIN_CONFIDENCE_TO_PERSIST) {
     return { ...base, status: "rejected", analyzer, analysis, reason: analysis.reasoning }
@@ -191,7 +200,7 @@ export async function ingestSocialPost(post: SocialPost, { dryRun = false }: Ing
       latitud:            location.lat,
       longitud:           location.lng,
       personas_afectadas: analysis.affectedPeopleEst,
-      fuente:             "social",
+      fuente:             post.trusted ? "sensor" : "social",
       fuente_detalles: {
         platform:         PLATFORM_LABELS[post.platform] ?? post.platform,
         platform_id:      post.platform,
@@ -201,8 +210,9 @@ export async function ingestSocialPost(post: SocialPost, { dryRun = false }: Ing
         imageUrl:         post.imageUrl,
         post_id:          post.id,
         posted_at:        post.postedAt.toISOString(),
-        hashtag:          TRIGGER_HASHTAG,
+        hashtag:          post.trusted ? trigger : TRIGGER_HASHTAG,
         hashtags:         extractHashtags(post.text),
+        ...(post.trusted ? { source_api: post.platform, source_url: post.authorUrl } : {}),
         reports_count:    1,
         related_post_ids: [post.id],
         corroborations:   [],

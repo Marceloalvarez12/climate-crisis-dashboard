@@ -8,7 +8,7 @@
  *   - posts off-topic con el hashtag        → la IA los rechaza (no es emergencia)
  *   - ruido off-topic sin hashtag           → ignorados
  *
- * Módulo isomórfico: lo usa el MockConnector (servidor) y el dev panel (cliente).
+ * Módulo isomórfico usado por el dev panel (cliente) para posts de prueba.
  */
 
 import { CONFIG } from "@/lib/config"

@@ -12,18 +12,20 @@
  *
  * Arquitectura:
  *   SocialMediaAgent
- *     ├── XConnector          (inactivo — sin X_BEARER_TOKEN)
- *     ├── FacebookConnector   (inactivo — sin FACEBOOK_ACCESS_TOKEN)
- *     ├── InstagramConnector  (inactivo — sin INSTAGRAM_ACCESS_TOKEN)
- *     ├── MockConnector       (fallback si no hay conectores reales)
+ *     ├── XConnector          (requiere X_BEARER_TOKEN)
+ *     ├── FacebookConnector   (requiere FACEBOOK_ACCESS_TOKEN)
+ *     ├── InstagramConnector  (requiere INSTAGRAM_ACCESS_TOKEN)
+ *     ├── UsgsConnector       (siempre activo — API pública)
+ *     ├── EonetConnector      (siempre activo — API pública)
  *     └── ingestSocialPost    (filtro de hashtag → OpenRouter/Gemini/reglas → Supabase)
  */
 
 import { randomUUID } from "crypto"
-import { MockConnector }     from "./connectors/mock-connector"
 import { XConnector }        from "./connectors/x-connector"
 import { FacebookConnector } from "./connectors/facebook-connector"
 import { InstagramConnector } from "./connectors/instagram-connector"
+import { UsgsConnector }     from "./connectors/usgs-connector"
+import { EonetConnector }    from "./connectors/eonet-connector"
 import { TRIGGER_HASHTAG }   from "./hashtag"
 import { CONFIG }            from "@/lib/config"
 import { ingestSocialPost }  from "@/lib/services/social-incident-service"
@@ -50,21 +52,21 @@ function connectorOptions(): ConnectorOptions {
 
 export class SocialMediaAgent {
   private readonly realConnectors: SocialConnector[]
-  private readonly fallback:       SocialConnector
 
   constructor() {
     this.realConnectors = [
       new XConnector(),
       new FacebookConnector(),
       new InstagramConnector(),
+      // APIs públicas reales — sin credenciales, siempre activas
+      new UsgsConnector(),
+      new EonetConnector(),
     ]
-    this.fallback = new MockConnector()
   }
 
-  /** Conectores que se usarán en el scan: los reales configurados o, si no hay, el mock */
+  /** Conectores configurados: USGS y EONET siempre lo están; los sociales sólo con credenciales */
   private activeConnectors(): SocialConnector[] {
-    const real = this.realConnectors.filter((c) => c.isConfigured())
-    return real.length > 0 ? real : [this.fallback]
+    return this.realConnectors.filter((c) => c.isConfigured())
   }
 
   /**
@@ -88,7 +90,7 @@ export class SocialMediaAgent {
       }
     }
 
-    const platform = (connectors[0]?.platform ?? "mock") as SocialPlatform
+    const platform = (connectors[0]?.platform ?? "usgs") as SocialPlatform
 
     if (allPosts.length === 0) {
       return this.buildResult(scanId, startedAt, platform, 0, [], "No se obtuvieron posts de ningún conector")
@@ -139,7 +141,7 @@ export class SocialMediaAgent {
 
   /** Lista los conectores disponibles y su estado */
   getConnectorStatus() {
-    return [...this.realConnectors, this.fallback].map((c) => ({
+    return this.realConnectors.map((c) => ({
       platform:     c.platform,
       isConfigured: c.isConfigured(),
     }))

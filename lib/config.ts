@@ -30,6 +30,20 @@ export const CONFIG = {
     CORROBORATION_CONFIDENCE_BOOST: 5,
     SIMULATED_HASHTAG_PROBABILITY: 0.65,
   },
+  EXTERNAL: {
+    TIMEOUT_MS: 12_000,
+    USGS: {
+      // Feed mensual M4.5+ — el diario casi nunca cubre el interior argentino
+      FEED_URL:       "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson",
+      MIN_MAGNITUDE:  4.5,
+      RADIUS_KM:      800,
+    },
+    EONET: {
+      FEED_URL: "https://eonet.gsfc.nasa.gov/api/v3/events",
+      // Bounding box de Argentina continental
+      BBOX: { minLat: -55.5, maxLat: -21.5, minLng: -73.8, maxLng: -53.0 },
+    },
+  },
   SEARCH_KEYWORDS: [
     "inundacion", "inundación", "desborde", "crecida", "canal",
     "incendio", "fuego", "quema", "humo", "bomberos",

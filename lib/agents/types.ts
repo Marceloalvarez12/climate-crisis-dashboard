@@ -8,7 +8,7 @@
 // Post normalizado (salida de cualquier conector)
 // ---------------------------------------------------------------------------
 
-export type SocialPlatform = "twitter" | "facebook" | "instagram" | "tiktok" | "mock"
+export type SocialPlatform = "twitter" | "facebook" | "instagram" | "tiktok" | "mock" | "usgs" | "eonet"
 
 export interface SocialPost {
   id:         string
@@ -23,13 +23,21 @@ export interface SocialPost {
   postedAt:   Date
   rawData?:   unknown          // payload original de la API (para debugging)
   simulated?: boolean          // true si proviene del feed simulado (demo)
+  /**
+   * true si proviene de una fuente autoritativa (USGS, NASA EONET…).
+   * Saltea el filtro de hashtag y el análisis IA — el conector
+   * provee su propio `preAnalysis` determinístico.
+   */
+  trusted?:   boolean
+  /** Análisis provisto por fuentes autoritativas (sólo cuando `trusted`) */
+  preAnalysis?: GeminiAnalysis
 }
 
 // ---------------------------------------------------------------------------
 // Análisis de Gemini sobre un conjunto de posts
 // ---------------------------------------------------------------------------
 
-export type AnalyzedIncidentType     = "flood" | "fire" | "storm" | "earthquake" | "accident" | "looting" | "violence" | "none"
+export type AnalyzedIncidentType     = "flood" | "fire" | "storm" | "earthquake" | "accident" | "looting" | "violence" | "general" | "none"
 export type AnalyzedIncidentSeverity = "critical" | "high" | "medium" | "low"
 
 export interface GeminiAnalysis {
@@ -83,7 +91,7 @@ export interface MentionOutcome {
   platform:    SocialPlatform
   author:      string
   hashtag:     string
-  analyzer?:   "llm" | "heuristic"
+  analyzer?:   "llm" | "heuristic" | "api"
   analysis?:   GeminiAnalysis
   incidentId?: string
   location?:   string

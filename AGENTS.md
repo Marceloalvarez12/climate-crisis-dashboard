@@ -24,6 +24,7 @@ Social incidents are created ONLY from posts containing the trigger hashtag (`#A
 
 - Single pipeline: `lib/services/social-incident-service.ts` → `ingestSocialPost()` (hashtag filter → dedup by post id → LLM/heuristic analysis → gazetteer geocoding → corroborate or create).
 - Entry points: `POST /api/social/mention` (webhook, supports `?dryRun=true`) and `SocialMediaAgent.runScan()` (`POST /api/agent`).
+- Real feeds (no key needed): `UsgsConnector` (USGS M3.5+ earthquakes within 800 km) and `EonetConnector` (NASA EONET open events in Argentina bbox). Their posts are `trusted` — they skip the hashtag filter and LLM, carry a deterministic `preAnalysis`, and persist as `fuente: "sensor"`. Config in `CONFIG.EXTERNAL` (`lib/config.ts`).
 - Analyzer fallback chain: OpenRouter → Gemini → `lib/agents/heuristic-analyzer.ts` (rule-based, no key needed).
 - Isomorphic helpers (safe in client): `lib/agents/hashtag.ts`, `lib/agents/tucuman-gazetteer.ts`, `lib/social-feed-simulator.ts`.
 - Active social incidents show in the map's Active tab with a "Pending Validation" badge; posts dedup via `fuente_detalles.related_post_ids`.

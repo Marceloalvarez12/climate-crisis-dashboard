@@ -112,6 +112,8 @@ Campos: `platform` (`facebook|instagram|twitter|tiktok`), `author`, `text` oblig
 
 > Meta no permite buscar posts públicos por hashtag en Facebook, e Instagram sólo lo permite a cuentas Business con límites. Por eso la integración real recomendada es reenviar menciones a este webhook desde una herramienta externa (Zapier, Make, n8n o un scraper autorizado).
 
+**Fuentes reales sin clave:** el scan periódico (`POST /api/agent`) también consulta dos APIs públicas autoritativas — el **feed USGS** (sismos M3.5+ dentro de 800 km de Tucumán) y **NASA EONET** (eventos naturales abiertos: incendios, inundaciones, tormentas en Argentina). Estos eventos no pasan por el hashtag ni la IA: llevan análisis determinístico y se guardan como `fuente: "sensor"` (aparecen verificados en `/mapa`). Si además se configuran `X_BEARER_TOKEN` / tokens de Meta, los conectores sociales reales se activan automáticamente. Ya **no hay datos de prueba** en el pipeline del agente.
+
 **Demo:** en `?dev=true` el panel de simulación tiene un compositor de posts (elegís Facebook/Instagram/X, escribís con o sin el hashtag y publicás) y "Start Social Feed Simulation" publica un post simulado cada 30 s con la mezcla: emergencias con hashtag, emergencias sin hashtag (ignoradas) y ruido off-topic (rechazado).
 
 ### 2. Reporte ciudadano anónimo verificable (Stellar ZK)
