@@ -16,7 +16,19 @@ npm run lint     # ESLint check
 
 ## Dev Mode
 
-Append `?dev=true` to enable the simulation control panel (bottom-left corner). This panel controls AI ingestion, simulates critical reports, and toggles the simulation loop.
+Append `?dev=true` to enable the simulation control panel (bottom-left corner). It has a social post composer (Facebook/Instagram/X), injects citizen ZK reports, and toggles the simulated social feed (one post every 30s).
+
+## Social Hashtag Trigger
+
+Social incidents are created ONLY from posts containing the trigger hashtag (`#AlertaTucuman`, override with `NEXT_PUBLIC_TRIGGER_HASHTAG`). There is no random incident spawning anymore.
+
+- Single pipeline: `lib/services/social-incident-service.ts` → `ingestSocialPost()` (hashtag filter → dedup by post id → LLM/heuristic analysis → gazetteer geocoding → corroborate or create).
+- Entry points: `POST /api/social/mention` (webhook, supports `?dryRun=true`) and `SocialMediaAgent.runScan()` (`POST /api/agent`).
+- Analyzer fallback chain: OpenRouter → Gemini → `lib/agents/heuristic-analyzer.ts` (rule-based, no key needed).
+- Isomorphic helpers (safe in client): `lib/agents/hashtag.ts`, `lib/agents/tucuman-gazetteer.ts`, `lib/social-feed-simulator.ts`.
+- Active social incidents show in the map's Active tab with a "Pending Validation" badge; posts dedup via `fuente_detalles.related_post_ids`.
+- Without `.env.local` only `dryRun` works (Supabase client throws at import; the service imports it lazily).
+- Quick check: `curl -X POST "localhost:3000/api/social/mention?dryRun=true" -H "Content-Type: application/json" -d '{"platform":"facebook","author":"x","text":"Incendio en Yerba Buena #AlertaTucuman"}'`
 
 ## Environment Variables (.env.local)
 
@@ -32,7 +44,7 @@ Arkiv dispatch endpoint falls back to simulated mode if `ARKIV_PRIVATE_KEY` is `
 
 ## API Security
 
-All `/api/*` routes (except `/_next`, `/favicon.ico`, `/api/analytics`, `/api/incidentes/arkiv-verify`) require either:
+All `/api/*` routes (except `PUBLIC_PATHS` in `middleware.ts`: `/api/analytics`, `/api/incidentes/arkiv-verify`, `/api/layers/*`, `/api/public/*`, health/version) require either:
 - Header: `x-api-secret: <API_SECRET>`
 - Query param: `?secret=<API_SECRET>`
 
@@ -44,6 +56,7 @@ Rate limiting is applied via `lib/rate-limit.ts`.
 - `app/api/incidentes/` — Core API routes for incident management
 - `app/api/agent/` — AI agent endpoint (Gemini analysis)
 - `app/auditoria/page.tsx` — Public blockchain audit portal (`/auditoria`)
+- `app/mapa/page.tsx` — Public read-only live map (`/mapa`); backed by `app/api/public/incidentes` (sanitized fields, no `fuente_detalles`)
 - `lib/services/` — Business logic layer (IncidentService, ArkivService, api-response helpers)
 - `lib/supabase.ts` — Server-side Supabase client (service role)
 - `lib/supabase-client.ts` — Client-side Supabase client (anon key, for Realtime)
@@ -90,7 +103,10 @@ Rate limiting is applied via `lib/rate-limit.ts`.
 - **Credentials in `.env.local`**: Contains real Supabase service role key, Gemini API key, and Arkiv private key. Ensure `.env.local` is never committed to git.
 
 ### Performance
-- **N+1 queries in AI agent**: `SocialMediaAgent.persistIncident()` executes 3 sequential Supabase queries per incident. Consider batching.
+- **Sequential queries per mention**: `ingestSocialPost()` runs up to 4 sequential Supabase queries per hashtag post (dedup, location, count, insert). Consider an RPC if volume grows.
+
+### Pre-existing type errors
+- `npx tsc --noEmit` reports 2 errors in `components/dashboard/crisis-map/map-inner.tsx` (`eventHandlers` on `MapContainer`). Build ignores TS errors.
 
 ### Architecture
 - **Middleware deprecation**: Next.js 16 marks `middleware.ts` as deprecated in favor of "proxy". Current implementation works but should be migrated.

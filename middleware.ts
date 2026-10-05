@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   "/api/layers/cameras",
   "/api/layers/earthquakes",
   "/api/layers/weather",
+  "/api/public",
 ]
 
 // Path segments that should be public (exact match or dynamic id)

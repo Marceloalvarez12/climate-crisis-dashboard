@@ -1,3 +1,4 @@
+import { TRIGGER_HASHTAG } from "@/lib/agents/hashtag"
 import type { ActivityItem, ReasoningStep } from "./types"
 
 // ---------------------------------------------------------------------------
@@ -6,7 +7,7 @@ import type { ActivityItem, ReasoningStep } from "./types"
 
 export const initialActivities: ActivityItem[] = [
   { id: "1", type: "monitoring", message: "Monitoring system started",          timestamp: new Date(Date.now() - 300_000) },
-  { id: "2", type: "extraction", message: "Extracting data from X (Twitter)...", timestamp: new Date(Date.now() - 240_000) },
+  { id: "2", type: "extraction", message: `Listening for ${TRIGGER_HASHTAG} on Facebook, Instagram and X...`, timestamp: new Date(Date.now() - 240_000) },
   {
     id: "3",
     type: "reasoning",
@@ -30,7 +31,7 @@ export const initialActivities: ActivityItem[] = [
 // ---------------------------------------------------------------------------
 
 export const backgroundMessages: Omit<ActivityItem, "id" | "timestamp">[] = [
-  { type: "extraction", message: "Extracting social media data..." },
+  { type: "extraction", message: `Listening for ${TRIGGER_HASHTAG} mentions on Facebook, Instagram and X...` },
   { type: "monitoring", message: "Scanning local news from La Gaceta..." },
   {
     type: "reasoning",

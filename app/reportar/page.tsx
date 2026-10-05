@@ -313,9 +313,15 @@ export default function ReportarPage() {
             <ArrowLeft className="h-4 w-4" />
             Back to Control Center
           </a>
-          <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500">
-            <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
-            ZK CIRCUIT · GROTH16
+          <div className="flex items-center gap-3">
+            <a href="/mapa" className="flex items-center gap-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">
+              <MapPin className="h-4 w-4" />
+              Live map
+            </a>
+            <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500">
+              <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+              ZK CIRCUIT · GROTH16
+            </div>
           </div>
         </div>
       </header>

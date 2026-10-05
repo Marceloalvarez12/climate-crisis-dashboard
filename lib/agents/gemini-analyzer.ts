@@ -25,7 +25,7 @@ const ANALYSIS_SCHEMA = {
     },
     type: {
       type:        SchemaType.STRING,
-      enum:        ["flood", "fire", "storm", "earthquake", "accident", "none"],
+      enum:        ["flood", "fire", "storm", "earthquake", "accident", "looting", "violence", "none"],
       description: "Tipo de incidente detectado",
     },
     severity: {
@@ -81,6 +81,8 @@ TIPOS DE INCIDENTES que debes detectar:
 - storm: tormentas severas, granizo, tornados, vientos fuertes con daños
 - earthquake: sismos, temblores
 - accident: accidentes viales graves con múltiples víctimas
+- looting: saqueos, asaltos masivos a comercios
+- violence: disturbios, enfrentamientos, tiroteos
 - none: no es un incidente de emergencia
 
 CRITERIOS DE SEVERIDAD:

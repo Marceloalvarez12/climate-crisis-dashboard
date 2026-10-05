@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { MapPin, Layers, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { mutate } from "swr"
 import { dispatchResourceWithLifecycle, restoreResourceTimersOnMount } from "@/hooks/use-resource-lifecycle"
-import { buildRespawnIncident } from "@/lib/mock-data"
-import { patchIncidente, createIncidente } from "@/lib/api"
+import { patchIncidente } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -69,9 +68,6 @@ export function CrisisMap() {
   const [deploySuccess,      setDeploySuccess]      = useState(false)
   const [selectedCounts,     setSelectedCounts]     = useState<Record<string, number>>({})
 
-  // Ref for respawn timers cleanup on unmount
-  const respawnTimersRef = useRef<Set<NodeJS.Timeout>>(new Set())
-
   // ── Data ──────────────────────────────────────────────────────────────────
   const { incidents: dbIncidents, mutate: mutateIncidents } = useIncidents(viewMode)
   const { data: dbRecursos, mutate: mutateRecursos }        = useResources()
@@ -118,8 +114,6 @@ export function CrisisMap() {
       cancelled = true
       const style = document.querySelector("style[data-leaflet]")
       if (style) style.remove()
-      respawnTimersRef.current.forEach((t) => clearTimeout(t))
-      respawnTimersRef.current.clear()
     }
   }, [])
 
@@ -236,23 +230,6 @@ export function CrisisMap() {
         idsToDispatch.map((id) => dispatchResourceWithLifecycle(incidenteId, id, () => mutateRecursos()).catch((err) => console.error("[CrisisMap] Error dispatching resource:", err)))
       )
       await mutateRecursos()
-    }
-
-    // Respawn 90s later — stored in ref for cleanup on unmount
-    if (incidenteId) {
-      const incidenteTipo  = selectedIncident?.type
-      const incidenteFuente = selectedIncident?.source
-      const timer = setTimeout(async () => {
-        try {
-          const respawn = buildRespawnIncident({ tipo: incidenteTipo, fuente: incidenteFuente })
-          await createIncidente(respawn)
-        } catch (err) {
-          console.error("[CrisisMap] Error creating respawn incident:", err)
-        } finally {
-          respawnTimersRef.current.delete(timer)
-        }
-      }, 90_000)
-      respawnTimersRef.current.add(timer)
     }
   }
 

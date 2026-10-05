@@ -24,6 +24,12 @@ export const CONFIG = {
     VERIFIER_CONTRACT_ID: process.env.NEXT_PUBLIC_STELLAR_VERIFIER_CONTRACT_ID || "CAMZ5UVX7HY5XP53VUXS64QXXHXCTBMYFU7QMGWMCDDQRYJQBFBVLJGD",
     SIMULATED_KEY_PREFIX: "SIMULATED",
   },
+  SOCIAL: {
+    TRIGGER_HASHTAG: process.env.NEXT_PUBLIC_TRIGGER_HASHTAG || "#AlertaTucuman",
+    MAX_POST_LENGTH: 2200,
+    CORROBORATION_CONFIDENCE_BOOST: 5,
+    SIMULATED_HASHTAG_PROBABILITY: 0.65,
+  },
   SEARCH_KEYWORDS: [
     "inundacion", "inundación", "desborde", "crecida", "canal",
     "incendio", "fuego", "quema", "humo", "bomberos",

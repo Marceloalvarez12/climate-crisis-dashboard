@@ -18,7 +18,7 @@ import type { SocialPost, GeminiAnalysis } from "./types"
 
 const AnalysisSchema = z.object({
   isIncident: z.boolean().describe("true si los posts reportan un incidente de emergencia real"),
-  type: z.enum(["flood", "fire", "storm", "earthquake", "accident", "none"]).describe("Tipo de incidente detectado"),
+  type: z.enum(["flood", "fire", "storm", "earthquake", "accident", "looting", "violence", "none"]).describe("Tipo de incidente detectado"),
   severity: z.enum(["critical", "high", "medium", "low"]).describe("Severidad estimada"),
   confidence: z.number().min(0).max(100).describe("Confianza 0-100"),
   locationName: z.string().describe("Nombre del lugar afectado"),
@@ -42,6 +42,8 @@ TIPOS DE INCIDENTES:
 - storm: tormentas severas, granizo, tornados, vientos fuertes
 - earthquake: sismos, temblores
 - accident: accidentes viales graves
+- looting: saqueos, asaltos masivos a comercios
+- violence: disturbios, enfrentamientos, tiroteos
 - none: no es un incidente
 
 CRITERIOS DE SEVERIDAD:
@@ -126,6 +128,11 @@ export class LlmAnalyzer {
 
   static isConfigured(): boolean {
     return !!process.env.OPENROUTER_API_KEY
+  }
+
+  /** true si hay al menos un proveedor LLM disponible (OpenRouter o Gemini) */
+  static hasAnyProvider(): boolean {
+    return !!process.env.OPENROUTER_API_KEY || !!process.env.GOOGLE_AI_API_KEY
   }
 
   private emptyAnalysis(): GeminiAnalysis {

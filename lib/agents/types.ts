@@ -22,13 +22,14 @@ export interface SocialPost {
   geoLng?:    number
   postedAt:   Date
   rawData?:   unknown          // payload original de la API (para debugging)
+  simulated?: boolean          // true si proviene del feed simulado (demo)
 }
 
 // ---------------------------------------------------------------------------
 // Análisis de Gemini sobre un conjunto de posts
 // ---------------------------------------------------------------------------
 
-export type AnalyzedIncidentType     = "flood" | "fire" | "storm" | "earthquake" | "accident" | "none"
+export type AnalyzedIncidentType     = "flood" | "fire" | "storm" | "earthquake" | "accident" | "looting" | "violence" | "none"
 export type AnalyzedIncidentSeverity = "critical" | "high" | "medium" | "low"
 
 export interface GeminiAnalysis {
@@ -58,5 +59,33 @@ export interface AgentScanResult {
   postsAnalyzed: number
   incidentsFound: GeminiAnalysis[]
   platform:      SocialPlatform
+  hashtag:       string
+  postsMatched:  number             // posts que contenían el hashtag disparador
+  outcomes:      MentionOutcome[]
   error?:        string
+}
+
+// ---------------------------------------------------------------------------
+// Resultado de procesar una mención individual (webhook o scan)
+// ---------------------------------------------------------------------------
+
+export type MentionStatus =
+  | "ignored"       // no contiene el hashtag disparador
+  | "rejected"      // contiene el hashtag pero la IA determinó que no es una emergencia
+  | "created"       // se creó un incidente nuevo
+  | "corroborated"  // reforzó un incidente activo existente en la misma ubicación
+  | "duplicate"     // el post ya había sido procesado
+  | "skipped"       // límite de incidentes activos alcanzado
+
+export interface MentionOutcome {
+  status:      MentionStatus
+  postId:      string
+  platform:    SocialPlatform
+  author:      string
+  hashtag:     string
+  analyzer?:   "llm" | "heuristic"
+  analysis?:   GeminiAnalysis
+  incidentId?: string
+  location?:   string
+  reason?:     string
 }

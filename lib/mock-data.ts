@@ -396,5 +396,5 @@ export const STATIC_RESPONSE_TIME_MIN = 18
 export const RESOURCE_DISPATCHED_TO_BUSY_MS  = 120_000
 export const RESOURCE_BUSY_TO_AVAILABLE_MS   = 180_000
 
-/** Intervalo entre spawns de incidentes en la simulacion automatica */
-export const SIMULATION_SPAWN_INTERVAL_MS = 90_000
+/** Intervalo entre posts del feed social simulado (dev panel). No todos generan incidente. */
+export const SIMULATION_SPAWN_INTERVAL_MS = 30_000

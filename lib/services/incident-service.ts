@@ -81,7 +81,6 @@ export class IncidentService {
       .from("incidentes")
       .select("*")
       .eq("estado", "activo")
-      .neq("fuente", "social")
       .order("created_at", { ascending: false })
 
     if (error) throw new Error(`Failed to fetch incidents: ${error.message}`)
@@ -92,7 +91,7 @@ export class IncidentService {
     const { data, error } = await supabase
       .from("incidentes")
       .select("*")
-      .or("estado.eq.atendido,and(estado.eq.activo,fuente.eq.social)")
+      .eq("estado", "atendido")
       .order("created_at", { ascending: false })
       .limit(CONFIG.INCIDENTS.MAX_HISTORY)
 

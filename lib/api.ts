@@ -6,6 +6,7 @@
  */
 
 import type { DbIncident, DbResource } from "@/lib/types"
+import type { MentionOutcome } from "@/lib/agents/types"
 
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET ?? ""
 
@@ -45,6 +46,29 @@ export async function createIncidente(body: Record<string, unknown>) {
   })
   if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
   return res.json() as Promise<DbIncident & { skipped?: boolean }>
+}
+
+// ---------------------------------------------------------------------------
+// Menciones en redes sociales (#AlertaTucuman)
+// ---------------------------------------------------------------------------
+
+export async function postSocialMention(payload: {
+  postId?:    string
+  platform:   string
+  author:     string
+  authorUrl?: string
+  text:       string
+  imageUrl?:  string
+  location?:  string
+  simulated?: boolean
+}) {
+  const res = await fetch("/api/social/mention", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+  return res.json() as Promise<MentionOutcome>
 }
 
 // ---------------------------------------------------------------------------

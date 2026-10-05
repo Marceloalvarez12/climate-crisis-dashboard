@@ -2,18 +2,18 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useSWRConfig } from "swr"
-import { CheckCircle2, Sparkles, Loader2 } from "lucide-react"
+import { CheckCircle2, Sparkles, Loader2, Hash } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { dispatchResourceWithLifecycle } from "@/hooks/use-resource-lifecycle"
 import { useAutoResolve } from "@/hooks/use-auto-resolve"
-import { buildRespawnIncident } from "@/lib/mock-data"
-import { patchIncidente, createIncidente, fetcher } from "@/lib/api"
+import { patchIncidente, fetcher } from "@/lib/api"
+import { TRIGGER_HASHTAG } from "@/lib/agents/hashtag"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
 import type { ActivityItem, SatelliteValidation } from "./ai-activity-log/types"
-import type { AgentScanResult, GeminiAnalysis } from "@/lib/agents/types"
+import type { AgentScanResult, MentionOutcome } from "@/lib/agents/types"
 import { initialActivities, backgroundMessages } from "./ai-activity-log/data"
 import { ActivityIcon, activityIconColor, SeverityBadge } from "./ai-activity-log/activity-helpers"
 import { ReasoningPanel, ConfidenceBadge } from "./ai-activity-log/reasoning-panel"
@@ -32,26 +32,33 @@ function makeActivity(
   return { ...template, id: `${Date.now()}-${Math.random()}`, timestamp: new Date(), isNew: true, ...extra }
 }
 
-/** Convierte un análisis de Gemini en una ActivityItem accionable */
-function geminiAnalysisToActivity(analysis: GeminiAnalysis): Omit<ActivityItem, "id" | "timestamp"> {
-  const typeMap: Record<string, ActivityItem["type"]> = {
-    flood: "alert", fire: "alert", storm: "alert",
-    earthquake: "alert", accident: "alert", none: "monitoring",
-  }
+const PLATFORM_NAMES: Record<string, string> = {
+  facebook: "Facebook", instagram: "Instagram", twitter: "X", tiktok: "TikTok", mock: "Simulated feed",
+}
+
+/** Convierte una mención que disparó (o corroboró) un incidente en una ActivityItem accionable */
+function mentionToActivity(outcome: MentionOutcome): Omit<ActivityItem, "id" | "timestamp"> {
+  const analysis = outcome.analysis!
+  const network  = PLATFORM_NAMES[outcome.platform] ?? outcome.platform
+  const isNew    = outcome.status === "created"
 
   return {
-    type:       typeMap[analysis.type] ?? "alert",
-    message:    `${analysis.locationName}: ${analysis.summary}`,
-    actionable: analysis.confidence >= 60 && analysis.isIncident,
+    type:       analysis.type === "none" ? "monitoring" : "alert",
+    message:    isNew
+      ? `${analysis.locationName}: ${analysis.summary}`
+      : `${analysis.locationName}: new ${outcome.hashtag} report corroborates the active incident`,
+    actionable: isNew && analysis.confidence >= 60 && analysis.isIncident,
     location:   analysis.locationName,
     severity:   analysis.severity as ActivityItem["severity"],
     confidence: analysis.confidence,
     arkivKey:   analysis.arkivKey,
+    incidentId: outcome.incidentId,
+    sourcePost: { platform: network, author: outcome.author, hashtag: outcome.hashtag },
     reasoning: [
       {
         step:    1,
-        thought: `Collected ${analysis.relatedPostIds.length} social media posts with emergency keywords`,
-        action:  "Multi-platform scan (MockConnector active · X, Facebook, Instagram awaiting API keys)",
+        thought: `Post by ${outcome.author} on ${network} contains the trigger hashtag ${outcome.hashtag}`,
+        action:  `Hashtag filter → ${outcome.analyzer === "llm" ? "LLM analysis (OpenRouter / Gemini)" : "Rule-based analysis (no LLM key configured)"}`,
       },
       {
         step:    2,
@@ -61,7 +68,7 @@ function geminiAnalysisToActivity(analysis: GeminiAnalysis): Omit<ActivityItem, 
         step:    3,
         thought: "Actions recommended by the AI system:",
         action:  analysis.suggestedActions.join(" · "),
-        result:  `Gemini Confidence: ${analysis.confidence}% · ~${analysis.affectedPeopleEst} people at risk`,
+        result:  `AI Confidence: ${analysis.confidence}% · ~${analysis.affectedPeopleEst} people at risk`,
       }] : []),
     ],
   }
@@ -88,7 +95,6 @@ export function AIActivityLog() {
   const scrollRef          = useRef<HTMLDivElement>(null)
   const messageIndexRef    = useRef(0)
   const agentScanningRef   = useRef(false)  // evita scans simultáneos
-  const respawnTimersRef    = useRef<Set<NodeJS.Timeout>>(new Set())
 
   const addActivity = useCallback((template: Omit<ActivityItem, "id" | "timestamp">) => {
     setActivities((prev) => [...prev.slice(-20), makeActivity(template)])
@@ -111,50 +117,6 @@ export function AIActivityLog() {
 
   const { mutate } = useSWRConfig()
 
-  // ── Cleanup respawn timer on unmount ──────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      respawnTimersRef.current.forEach((t) => clearTimeout(t))
-      respawnTimersRef.current.clear()
-    }
-  }, [])
-
-  // ── Respawn automático cada 4 minutos ────────────────────────────────────
-  // Reactivates a random resolved incident (estado atendido → activo, updated_at = now)
-  // so the dashboard stays populated even when the Gemini API quota is exhausted.
-  useEffect(() => {
-    const RESPAWN_INTERVAL_MS = 90_000  // 90 segundos
-
-    const respawn = async () => {
-      try {
-        const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET ?? ""
-        const res  = await fetch("/api/incidentes/respawn", {
-          method: "POST",
-          headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
-        })
-        const data = await res.json()
-        if (data.respawned && data.incident) {
-          mutate("/api/incidentes?estado=activo")
-          mutate("/api/incidentes?estado=atendido")
-          mutate("/api/analytics")
-          addActivity({
-            type:    "alert",
-            message: `New incident detected: ${data.incident.tipo} at ${data.incident.ubicacion}`,
-            severity: data.incident.severidad,
-            actionable: true,
-            location: data.incident.ubicacion,
-          })
-        }
-      } catch {
-        // Non-blocking
-      }
-    }
-
-    // First respawn after 4 minutes, then every 4 minutes
-    const id = setInterval(respawn, RESPAWN_INTERVAL_MS)
-    return () => clearInterval(id)
-  }, [addActivity, mutate])
-
   // ── Loop de mensajes de fondo (monitoring, extraction, etc.) ─────────────
   useEffect(() => {
     const interval = setInterval(() => {
@@ -175,57 +137,67 @@ export function AIActivityLog() {
     setIsAgentScanning(true)
 
     // 1. Mensaje de inicio
-    addActivity({ type: "extraction", message: "Starting social media scan with Gemini 2.0 Flash..." })
+    addActivity({ type: "extraction", message: `Scanning social media for ${TRIGGER_HASHTAG}...` })
     await new Promise((r) => setTimeout(r, 800))
-    addActivity({ type: "monitoring", message: "Collecting posts: X (Twitter) · Facebook · Instagram · local feeds..." })
+    addActivity({ type: "monitoring", message: "Collecting posts: Facebook · Instagram · X (Twitter)..." })
 
     try {
-      const res    = await fetch("/api/agent", { method: "POST" })
-      const result = await res.json() as AgentScanResult
+      const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET ?? ""
+      const res    = await fetch("/api/agent", {
+        method:  "POST",
+        headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
+      })
+      const result = await res.json() as AgentScanResult & { error?: string }
 
-      if (result.error) {
-        addActivity({ type: "monitoring", message: `Scan error: ${result.error}` })
+      if (!res.ok || result.error) {
+        addActivity({ type: "monitoring", message: `Scan error: ${result.error ?? res.statusText}` })
         return
       }
 
-      // 2. Resumen de recolección
+      // 2. Resumen del filtro de hashtag
       addActivity({
         type:    "database",
-        message: `${result.postsCollected} posts collected and sent to Gemini for analysis`,
+        message: `${result.postsCollected} posts collected · ${result.postsMatched} with ${result.hashtag} sent to AI analysis`,
       })
 
-      // 3. Mostrar incidentes encontrados como alertas accionables
-      const activeIncidents = result.incidentsFound.filter((a) => a.isIncident)
+      // 3. Posts con hashtag que la IA descartó (no eran emergencias)
+      const rejected = result.outcomes.filter((o) => o.status === "rejected").length
+      if (rejected > 0) {
+        addActivity({ type: "reasoning", message: `${rejected} ${result.hashtag} post(s) discarded: not an emergency` })
+      }
 
-      if (activeIncidents.length === 0) {
+      // 4. Incidentes creados / corroborados como alertas accionables
+      const hits = result.outcomes.filter((o) => (o.status === "created" || o.status === "corroborated") && o.analysis)
+
+      if (hits.length === 0) {
         addActivity({
           type:    "complete",
-          message: `Scan complete: ${result.postsCollected} posts analyzed. No incidents detected.`,
+          message: `Scan complete: no new ${result.hashtag} emergencies detected.`,
         })
       } else {
-        for (const analysis of activeIncidents) {
+        mutate("/api/incidentes?estado=activo")
+        mutate("/api/analytics")
+        for (const outcome of hits) {
           await new Promise((r) => setTimeout(r, 600)) // pequeño delay dramático entre alertas
-          addActivity(geminiAnalysisToActivity(analysis))
+          addActivity(mentionToActivity(outcome))
         }
       }
     } catch (err) {
-      addActivity({ type: "monitoring", message: "Connection error with Gemini agent — retrying on next cycle" })
-      console.error("[AIActivityLog/Gemini]", err)
+      addActivity({ type: "monitoring", message: "Connection error with the AI agent — retrying on next cycle" })
+      console.error("[AIActivityLog/Agent]", err)
     } finally {
       agentScanningRef.current = false
       setIsAgentScanning(false)
     }
-  }, [addActivity])
+  }, [addActivity, mutate])
 
-  // Primer scan a los 15s, luego cada 2 minutos
+  // Primer scan a los 8s, luego cada 90s
   useEffect(() => {
     const firstTimer = setTimeout(runGeminiScan, GEMINI_INITIAL_DELAY_MS)
     const interval   = setInterval(runGeminiScan, GEMINI_SCAN_INTERVAL_MS)
     return () => {
       clearTimeout(firstTimer)
       clearInterval(interval)
-      respawnTimersRef.current.forEach(timer => clearTimeout(timer))
-      respawnTimersRef.current.clear()
     }
   }, [runGeminiScan])
 
@@ -289,7 +261,7 @@ export function AIActivityLog() {
   const confirmAction = async () => {
     if (!confirmDialog.activity) return
 
-    const { id: activityId, location = "" } = confirmDialog.activity
+    const { id: activityId, location = "", incidentId } = confirmDialog.activity
     setProcessedAlerts((prev) => new Set(prev).add(activityId))
     setConfirmDialog((prev) => ({ ...prev, open: false, activity: null }))
 
@@ -297,7 +269,7 @@ export function AIActivityLog() {
       try {
         const incidentes: Array<{ id: string; ubicacion: string; tipo: string; fuente: string }> = await fetcher("/api/incidentes?estado=activo")
 
-        const incidente = incidentes.find((inc) => {
+        const incidente = incidentes.find((inc) => inc.id === incidentId) ?? incidentes.find((inc) => {
           const incLoc = inc.ubicacion.toLowerCase()
           const actLoc = location.toLowerCase()
           return incLoc.includes(actLoc.split(",")[0].trim()) || actLoc.includes(incLoc.split("-")[0].trim())
@@ -331,18 +303,6 @@ export function AIActivityLog() {
             console.error("[ai-activity-log] On-chain dispatch error from AI panel, falling back to local patch:", e)
             await patchIncidente(incidente.id, { estado: "atendido" })
           }
-
-          const timer = setTimeout(async () => {
-            try {
-              const respawn = buildRespawnIncident({ tipo: incidente.tipo, fuente: incidente.fuente })
-              await createIncidente(respawn)
-            } catch (err) {
-              console.error("[ai-activity-log] Error creating respawn:", err)
-            } finally {
-              respawnTimersRef.current.delete(timer)
-            }
-          }, 90_000)
-          respawnTimersRef.current.add(timer)
         }
 
         await dispatchResourceWithLifecycle(incidente?.id, undefined, () => {
@@ -386,15 +346,19 @@ export function AIActivityLog() {
           {isAgentScanning && (
             <Badge variant="outline" className="text-[9px] h-5 px-1.5 border-purple-500/50 text-purple-400 bg-purple-500/10 gap-1">
               <Loader2 className="h-2.5 w-2.5 animate-spin" />
-              Gemini
+              Scanning
             </Badge>
           )}
           {!isAgentScanning && (
             <Badge variant="outline" className="text-[9px] h-5 px-1.5 border-purple-500/30 text-purple-400 gap-1">
               <Sparkles className="h-2.5 w-2.5" />
-              2.0 Flash
+              AI
             </Badge>
           )}
+          <Badge variant="outline" title="Trigger hashtag being monitored" className="text-[9px] h-5 px-1.5 border-sky-500/40 text-sky-300 gap-0.5 font-mono">
+            <Hash className="h-2.5 w-2.5" />
+            {TRIGGER_HASHTAG.replace(/^#/, "")}
+          </Badge>
           <Badge variant="outline" className="text-[10px] border-success/50 text-success">
             Active
           </Badge>
@@ -430,6 +394,19 @@ export function AIActivityLog() {
                         <p className="text-xs text-foreground leading-relaxed">{activity.message}</p>
                         {activity.severity && <SeverityBadge severity={activity.severity} />}
                       </div>
+
+                      {/* Post social que disparó la alerta */}
+                      {activity.sourcePost && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          <Badge variant="outline" className="h-4 gap-0.5 border-sky-500/40 bg-sky-500/10 px-1.5 text-[9px] font-mono text-sky-300">
+                            <Hash className="h-2.5 w-2.5" />
+                            {activity.sourcePost.hashtag.replace(/^#/, "")}
+                          </Badge>
+                          <span className="truncate text-[10px] text-muted-foreground">
+                            {activity.sourcePost.author} · {activity.sourcePost.platform}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Time + confidence */}
                       <div className="flex items-center gap-2 mt-1">

@@ -19,6 +19,16 @@ export interface IncidentSourceDetails {
   username?:       string
   content?:        string
   imageUrl?:       string
+  platform_id?:    string
+  author_url?:     string
+  post_id?:        string
+  posted_at?:      string
+  hashtag?:        string
+  hashtags?:       string[]
+  reports_count?:  number
+  corroborations?: Array<{ post_id: string; platform: string; author: string; content: string; at: string }>
+  analyzer?:       "llm" | "heuristic"
+  simulated?:      boolean
   // Sensor
   sensorId?:       string
   temperature?:    number
@@ -31,6 +41,7 @@ export interface IncidentSourceDetails {
   // Blockchain / AI Analysis
   arkiv_entity_key?: string
   ai_analysis?: {
+    summary?: string
     reasoning?: string
     suggestedActions?: string[]
     confidence?: number

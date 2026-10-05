@@ -3,16 +3,14 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useSWRConfig } from "swr"
 import {
-  buildRespawnIncident,
-  SOCIAL_REPORTS,
-  CAMERA_REPORTS,
-  SENSOR_REPORTS,
   CITIZEN_REPORTS,
   RESOURCE_DISPATCHED_TO_BUSY_MS,
   RESOURCE_BUSY_TO_AVAILABLE_MS,
   SIMULATION_SPAWN_INTERVAL_MS,
 } from "@/lib/mock-data"
-import { createIncidente, fetchRecursos, patchRecurso, patchIncidente, createZkCitizenReport } from "@/lib/api"
+import { fetchRecursos, patchRecurso, patchIncidente, createZkCitizenReport, postSocialMention } from "@/lib/api"
+import { buildSimulatedPost, type SimulatedPostPayload } from "@/lib/social-feed-simulator"
+import type { MentionOutcome } from "@/lib/agents/types"
 
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || ""
 const MAX_ACTIVE_SIMULATED_INCIDENTS = 5
@@ -23,12 +21,20 @@ const AUTO_RESOLVE_UNATTENDED_MS = 120_000
 // ---------------------------------------------------------------------------
 
 export interface SimulationEvent {
-  type: "incident_created" | "resource_dispatched" | "resource_arrived" | "incident_resolved" | "incident_respawned" | "citizen_zk_report"
+  type:
+    | "incident_created" | "resource_dispatched" | "resource_arrived" | "incident_resolved"
+    | "incident_respawned" | "citizen_zk_report"
+    | "post_ignored" | "post_rejected" | "hashtag_corroborated"
   message: string
   timestamp: Date
   incidentId?: string
   resourceId?: string
+  location?:   string
+  platform?:   string
 }
+
+/** Sin `text` se genera un post aleatorio del feed simulado */
+export type SocialPostInput = Partial<Pick<SimulatedPostPayload, "platform" | "text" | "author">>
 
 export interface ActiveDispatch {
   incidentId:       string
@@ -40,32 +46,9 @@ export interface ActiveDispatch {
   etaSeconds:       number
 }
 
-// ---------------------------------------------------------------------------
-// Plantillas de incidentes (sin valores aleatorios; se generan en spawn time)
-// ---------------------------------------------------------------------------
+const CITIZEN_REPORT_CHANCE = 0.2
 
-const INCIDENT_TEMPLATES = [
-  ...SOCIAL_REPORTS.map((r) => ({
-    tipo:   r.tipo,
-    fuente: "social" as const,
-    ubicacion: r.zona.nombre,
-    fuente_detalles: { platform: "X (Twitter)", username: r.fuente, content: r.texto, imageUrl: r.imageUrl },
-  })),
-  ...CAMERA_REPORTS.map((r) => ({
-    tipo:   r.tipo,
-    fuente: "camera" as const,
-    ubicacion: r.zona.nombre,
-    fuente_detalles: { cameraId: r.cameraId, cameraLocation: r.zona.nombre, imageUrl: r.imageUrl },
-  })),
-  ...SENSOR_REPORTS.map((r) => ({
-    tipo:   r.tipo,
-    fuente: "sensor" as const,
-    ubicacion: r.zona.nombre,
-    fuente_detalles: { sensorId: r.sensorId, temperature: r.temperature, humidity: r.humidity, windSpeed: r.windSpeed, pressure: r.pressure },
-  })),
-]
-
-const CITIZEN_REPORT_CHANCE = 0.3
+const PLATFORM_NAME: Record<string, string> = { facebook: "Facebook", instagram: "Instagram", twitter: "X" }
 
 export function useSimulationLoop() {
   const { mutate } = useSWRConfig()
@@ -77,8 +60,69 @@ export function useSimulationLoop() {
   const dispatchTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
 
   const addEvent = useCallback((event: Omit<SimulationEvent, "timestamp">) => {
-    setEvents((prev) => [{ ...event, timestamp: new Date() }, ...prev].slice(0, 20))
+    setEvents((prev) => [{ ...event, timestamp: new Date() }, ...prev].slice(0, 30))
   }, [])
+
+  const refreshIncidents = useCallback(() => {
+    mutate("/api/incidentes?estado=activo")
+    mutate("/api/incidentes?estado=atendido")
+    mutate("/api/analytics")
+  }, [mutate])
+
+  // Auto-resolución de incidentes simulados no atendidos
+  const scheduleAutoResolve = useCallback((incidentId: string, location: string, label = "incidente") => {
+    const timer = setTimeout(async () => {
+      try {
+        const current = await fetch(`/api/incidentes/${incidentId}`).then(r => r.ok ? r.json() : null)
+        if (current?.data?.estado === "activo") {
+          await patchIncidente(incidentId, { estado: "atendido" })
+          refreshIncidents()
+          addEvent({ type: "incident_resolved", message: `Auto-resuelto: ${label} en ${location}`, incidentId, location })
+        }
+      } catch (err) {
+        console.error("[use-simulation-loop] Auto-resolve failed:", err)
+      }
+    }, AUTO_RESOLVE_UNATTENDED_MS)
+    dispatchTimersRef.current.set(`autoresolve-${incidentId}`, timer)
+  }, [addEvent, refreshIncidents])
+
+  // Publica un post (simulado o escrito a mano) en el webhook de menciones.
+  // Sólo los posts con #AlertaTucuman que describen una emergencia crean incidentes.
+  const publishSocialPost = useCallback(async (input?: SocialPostInput): Promise<MentionOutcome | null> => {
+    const post = buildSimulatedPost(input)
+    const net  = PLATFORM_NAME[post.platform] ?? post.platform
+    try {
+      const outcome = await postSocialMention(post)
+      const where   = outcome.location ?? "ubicación desconocida"
+      switch (outcome.status) {
+        case "created":
+          refreshIncidents()
+          addEvent({ type: "incident_created", message: `${outcome.hashtag} en ${net} (${post.author}) → incidente en ${where}`, incidentId: outcome.incidentId, location: where, platform: post.platform })
+          if (outcome.incidentId) scheduleAutoResolve(outcome.incidentId, where)
+          break
+        case "corroborated":
+          refreshIncidents()
+          addEvent({ type: "hashtag_corroborated", message: `${net} (${post.author}) corrobora el incidente en ${where}`, incidentId: outcome.incidentId, location: where, platform: post.platform })
+          break
+        case "rejected":
+          addEvent({ type: "post_rejected", message: `${outcome.hashtag} en ${net} descartado por IA: no es una emergencia`, platform: post.platform })
+          break
+        case "skipped":
+          addEvent({ type: "post_rejected", message: `Incidente en ${where} no creado: límite de activos alcanzado`, platform: post.platform })
+          break
+        case "duplicate":
+          addEvent({ type: "post_ignored", message: `Post duplicado de ${post.author} ignorado`, platform: post.platform })
+          break
+        default:
+          addEvent({ type: "post_ignored", message: `Post de ${post.author} en ${net} sin ${outcome.hashtag}: ignorado`, platform: post.platform })
+      }
+      return outcome
+    } catch (err) {
+      console.error("[use-simulation-loop] Failed to publish social post:", err)
+      addEvent({ type: "post_rejected", message: `Error al procesar post de ${net}`, platform: post.platform })
+      return null
+    }
+  }, [addEvent, refreshIncidents, scheduleAutoResolve])
 
   const spawnCitizenZkReport = useCallback(async () => {
     const report = CITIZEN_REPORTS[Math.floor(Math.random() * CITIZEN_REPORTS.length)]
@@ -92,34 +136,15 @@ export function useSimulationLoop() {
         personasAfectadas: 0,
         descripcion: report.descripcion,
       })
-      mutate("/api/incidentes?estado=activo")
-      mutate("/api/incidentes?estado=atendido")
-      mutate("/api/analytics")
-      addEvent({ type: "citizen_zk_report", message: `Reporte ciudadano ZK en ${data.incident.ubicacion}`, incidentId: data.incident.id })
-
-      // Auto-resolución de reportes ciudadanos ZK no atendidos
-      const autoResolveTimer = setTimeout(async () => {
-        try {
-          const current = await fetch(`/api/incidentes/${data.incident.id}`).then(r => r.ok ? r.json() : null)
-          if (current?.data?.estado === "activo") {
-            await patchIncidente(data.incident.id, { estado: "atendido" })
-            mutate("/api/incidentes?estado=activo")
-            mutate("/api/incidentes?estado=atendido")
-            mutate("/api/analytics")
-            addEvent({ type: "incident_resolved", message: `Auto-resuelto: reporte ciudadano en ${data.incident.ubicacion}`, incidentId: data.incident.id })
-          }
-        } catch (err) {
-          console.error("[use-simulation-loop] Auto-resolve citizen ZK failed:", err)
-        }
-      }, AUTO_RESOLVE_UNATTENDED_MS)
-      dispatchTimersRef.current.set(`autoresolve-${data.incident.id}`, autoResolveTimer)
-
+      refreshIncidents()
+      addEvent({ type: "citizen_zk_report", message: `Reporte ciudadano ZK en ${data.incident.ubicacion}`, incidentId: data.incident.id, location: data.incident.ubicacion })
+      scheduleAutoResolve(data.incident.id, data.incident.ubicacion, "reporte ciudadano")
       return data.incident
     } catch (err) {
       console.error("[use-simulation-loop] Failed to spawn citizen ZK report:", err)
       return null
     }
-  }, [mutate, addEvent])
+  }, [addEvent, refreshIncidents, scheduleAutoResolve])
 
   const activeCount = useCallback(async () => {
     try {
@@ -149,66 +174,24 @@ export function useSimulationLoop() {
           })
         )
       )
-      mutate("/api/incidentes?estado=activo")
-      mutate("/api/incidentes?estado=atendido")
-      mutate("/api/analytics")
+      refreshIncidents()
       addEvent({ type: "incident_resolved", message: `Limpieza: ${simulated.length} incidentes simulados eliminados` })
     } catch (err) {
       console.error("[use-simulation-loop] Failed to cleanup simulated incidents:", err)
     }
-  }, [mutate, addEvent])
+  }, [addEvent, refreshIncidents])
 
+  // Cada tick de la simulación publica un post en el feed social simulado
+  // (o, con menor probabilidad, un reporte ciudadano ZK). Ya no se crean
+  // incidentes aleatorios: sólo nacen de posts con el hashtag disparador.
   const spawnIncident = useCallback(async () => {
     const active = await activeCount()
     if (active >= MAX_ACTIVE_SIMULATED_INCIDENTS) {
-      addEvent({ type: "incident_created", message: "Límite de incidentes activos alcanzado. No se spawnea más." })
+      addEvent({ type: "post_ignored", message: "Límite de incidentes activos alcanzado. Feed en pausa." })
       return null
     }
-
-    const isCitizen = Math.random() < CITIZEN_REPORT_CHANCE
-    if (isCitizen) {
-      return spawnCitizenZkReport()
-    }
-
-    const template = INCIDENT_TEMPLATES[Math.floor(Math.random() * INCIDENT_TEMPLATES.length)]
-    const respawn  = buildRespawnIncident({ tipo: template.tipo, fuente: template.fuente })
-
-    try {
-      const data = await createIncidente({
-        ...respawn,
-        fuente_detalles: {
-          ...template.fuente_detalles,
-          ...respawn.fuente_detalles,
-        },
-        estado: "activo",
-      })
-      mutate("/api/incidentes?estado=activo")
-      mutate("/api/incidentes?estado=atendido")
-      addEvent({ type: "incident_created", message: `Nuevo incidente en ${data.ubicacion}`, incidentId: data.id })
-
-      // Auto-resolución de incidentes simulados no atendidos
-      const autoResolveTimer = setTimeout(async () => {
-        try {
-          const current = await fetch(`/api/incidentes/${data.id}`).then(r => r.ok ? r.json() : null)
-          if (current?.data?.estado === "activo") {
-            await patchIncidente(data.id, { estado: "atendido" })
-            mutate("/api/incidentes?estado=activo")
-            mutate("/api/incidentes?estado=atendido")
-            mutate("/api/analytics")
-            addEvent({ type: "incident_resolved", message: `Auto-resuelto: incidente en ${data.ubicacion}`, incidentId: data.id })
-          }
-        } catch (err) {
-          console.error("[use-simulation-loop] Auto-resolve failed:", err)
-        }
-      }, AUTO_RESOLVE_UNATTENDED_MS)
-      dispatchTimersRef.current.set(`autoresolve-${data.id}`, autoResolveTimer)
-
-      return data
-    } catch (err) {
-      console.error("[use-simulation-loop] Failed to spawn incident:", err)
-      return null
-    }
-  }, [mutate, addEvent, spawnCitizenZkReport])
+    return Math.random() < CITIZEN_REPORT_CHANCE ? spawnCitizenZkReport() : publishSocialPost()
+  }, [activeCount, addEvent, spawnCitizenZkReport, publishSocialPost])
 
   // Despacha un recurso al incidente y encadena el ciclo de vida
   const dispatchResource = useCallback(
@@ -321,7 +304,7 @@ export function useSimulationLoop() {
     [mutate, addEvent],
   )
 
-  // Inicia el loop: primer incidente inmediato, luego cada SIMULATION_SPAWN_INTERVAL_MS
+  // Inicia el loop: primer post inmediato, luego cada SIMULATION_SPAWN_INTERVAL_MS
   const startSimulation = useCallback(async () => {
     if (spawnTimerRef.current) clearInterval(spawnTimerRef.current) // prevent double-start
     setIsRunning(true)
@@ -350,5 +333,5 @@ export function useSimulationLoop() {
     }
   }, [])
 
-  return { isRunning, events, activeDispatches, startSimulation, stopSimulation, dispatchResource, spawnCitizenZkReport, cleanupSimulatedIncidents }
+  return { isRunning, events, activeDispatches, startSimulation, stopSimulation, dispatchResource, spawnCitizenZkReport, cleanupSimulatedIncidents, publishSocialPost }
 }

@@ -22,7 +22,7 @@ const ICON_MAP: Record<IncidentType, string> = {
 }
 
 const SOURCE_INDICATOR: Record<IncidentSource, string> = {
-  social: "🐦",
+  social: "#",
   sensor: "📡",
   camera: "📹",
   citizen: "🙋",
@@ -57,7 +57,7 @@ export function createLeafletIcon(
         ${sonarRing}
         <div style="position:absolute;width:40px;height:40px;background:${color};border-radius:50%;opacity:0.3;animation:pulse 2s infinite;z-index:0;"></div>
         <div style="width:28px;height:28px;background:${color};border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.4);z-index:1;cursor:pointer;">${icon}</div>
-        <div style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#171717;border:1px solid ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;z-index:2;">${src}</div>
+        <div style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#171717;border:1px solid ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${source === "social" ? "10px;font-weight:700;color:#7dd3fc" : "8px"};z-index:2;">${src}</div>
       </div>
     `,
     iconSize:    [40, 40],

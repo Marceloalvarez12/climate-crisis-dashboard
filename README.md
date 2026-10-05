@@ -28,8 +28,9 @@ http://localhost:3000?dev=true
 
 El parámetro `?dev=true` activa el panel de simulación en la esquina inferior izquierda, desde donde podés:
 
+- Publicar posts de Facebook / Instagram / X con `#AlertaTucuman` que disparan incidentes.
 - Inyectar reportes ciudadanos ZK manualmente.
-- Iniciar/detener la simulación dinámica.
+- Iniciar/detener el feed social simulado.
 - Limpiar incidentes simulados.
 - Despachar recursos y ver cómo se registran en Arkiv.
 
@@ -72,6 +73,47 @@ Redes sociales / sensores / cámaras
 - El despacho se firma en la blockchain de Arkiv, generando una entidad inmutable.
 - El ciudadano y el operador pueden consultar la trazabilidad en `/auditoria`.
 
+### 1.b Incidentes disparados por hashtag en redes sociales (`#AlertaTucuman`)
+
+Los incidentes de fuente `social` **ya no se generan al azar**: nacen únicamente de posts de Facebook, Instagram o X que contienen el hashtag disparador.
+
+```
+Post en Facebook / Instagram / X
+        ↓
+POST /api/social/mention  ◄── feed simulado, dev panel, Zapier/Make/n8n, scraper…
+        ↓
+¿Contiene #AlertaTucuman?  ── no ──► ignored
+        ↓ sí
+¿Post ya procesado?        ── sí ──► duplicate
+        ↓
+IA: OpenRouter → Gemini → reglas (fallback sin API key)
+        ↓  ¿es emergencia real y confianza ≥ 60?  ── no ──► rejected
+Georreferenciación: geo del post → nomenclátor de Tucumán → aproximada
+        ↓
+¿Incidente activo en ese lugar? ── sí ──► corroborated (suma reporte, sube confianza/severidad)
+        ↓
+created → Supabase → Realtime → aparece en el mapa ("Pending Validation")
+```
+
+- El hashtag es tolerante a mayúsculas y tildes (`#alertatucumán` también dispara) y se configura con `NEXT_PUBLIC_TRIGGER_HASHTAG`.
+- El tipo, severidad, ubicación y afectados **se extraen del texto del post**, no son aleatorios.
+- El agente periódico (`/api/agent`, cada 90 s) y el webhook usan el **mismo pipeline** (`lib/services/social-incident-service.ts`).
+- Sin `OPENROUTER_API_KEY` ni `GOOGLE_AI_API_KEY` funciona igual con el analizador por reglas (`lib/agents/heuristic-analyzer.ts`).
+
+**Webhook** (protegido por `x-api-secret`):
+
+```bash
+curl -X POST "http://localhost:3000/api/social/mention" \
+  -H "Content-Type: application/json" -H "x-api-secret: $API_SECRET" \
+  -d '{"platform":"facebook","author":"María","text":"Se desbordó el canal en Barrio San Pablo, hay familias atrapadas #AlertaTucuman"}'
+```
+
+Campos: `platform` (`facebook|instagram|twitter|tiktok`), `author`, `text` obligatorios; opcionales `postId`, `authorUrl`, `imageUrl`, `location`, `lat`+`lng`, `postedAt`. Con `?dryRun=true` analiza sin escribir en la base. Respuesta: `status` = `ignored | rejected | created | corroborated | duplicate | skipped`.
+
+> Meta no permite buscar posts públicos por hashtag en Facebook, e Instagram sólo lo permite a cuentas Business con límites. Por eso la integración real recomendada es reenviar menciones a este webhook desde una herramienta externa (Zapier, Make, n8n o un scraper autorizado).
+
+**Demo:** en `?dev=true` el panel de simulación tiene un compositor de posts (elegís Facebook/Instagram/X, escribís con o sin el hashtag y publicás) y "Start Social Feed Simulation" publica un post simulado cada 30 s con la mezcla: emergencias con hashtag, emergencias sin hashtag (ignoradas) y ruido off-topic (rechazado).
+
 ### 2. Reporte ciudadano anónimo verificable (Stellar ZK)
 
 ```
@@ -113,6 +155,19 @@ Y ver:
 - Auditoría Arkiv cuando el incidente recibió despacho.
 - Timestamp y link al explorador.
 
+### 4. Mapa público de emergencias (`/mapa`)
+
+Vista ciudadana de solo lectura — sin paneles operativos ni controles:
+
+```
+/mapa → GET /api/public/incidentes (polling cada 5 s) → marcadores en tiempo real
+```
+
+- `GET /api/public/incidentes` es **público** (`PUBLIC_PATHS` del middleware) pero devuelve campos sanitizados: nunca expone `fuente_detalles` (autores, razonamiento de IA, claves on-chain internas).
+- Los incidentes sociales aún no validados se muestran con el tag "(en verificación)".
+- El CTA "Reportar emergencia" enlaza a `/reportar` (ZK citizen report).
+- Toca el marcador para ver tipo, severidad, ubicación y afectados.
+
 ---
 
 ## 🔐 Variables de entorno
@@ -131,6 +186,9 @@ GOOGLE_AI_API_KEY=tu-gemini-api-key
 # OpenRouter (alternativa gratuita a Gemini)
 OPENROUTER_API_KEY=sk-or-v1-tu-openrouter-key
 OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct
+
+# Hashtag que dispara incidentes desde redes sociales (opcional)
+NEXT_PUBLIC_TRIGGER_HASHTAG=#AlertaTucuman
 
 # Seguridad de API
 API_SECRET=clave-aleatoria-de-api
@@ -180,6 +238,12 @@ Para auditoría Arkiv:
 
 ```
 http://localhost:3000/auditoria
+```
+
+Mapa público de emergencias (sin autenticación):
+
+```
+http://localhost:3000/mapa
 ```
 
 ---

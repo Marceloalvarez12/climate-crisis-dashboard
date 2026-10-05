@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet"
 import type { Incident } from "@/lib/types"
 import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./leaflet-icon"
 import { HeatMapLayer } from "./heat-map-layer"
@@ -61,6 +61,20 @@ interface MapInnerProps {
   tileStyle?: TileStyle
 }
 
+// Evita que un click en el mapa haga saltar el scroll de la página.
+// react-leaflet v5 no acepta `eventHandlers` en MapContainer — hay que
+// usar useMapEvents dentro de un hijo del mapa.
+function ScrollGuard() {
+  useMapEvents({
+    click: (event) => {
+      const scrollY = window.scrollY
+      requestAnimationFrame(() => window.scrollTo({ top: scrollY, behavior: "instant" }))
+      event.originalEvent.preventDefault()
+    },
+  })
+  return null
+}
+
 export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: MapInnerProps) {
   const config = TILE_CONFIGS[tileStyle]
   const [activeUrl, setActiveUrl] = useState(config.url)
@@ -112,15 +126,9 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
         zoom={13}
         scrollWheelZoom
         preferCanvas={false}
-        eventHandlers={{
-          click: (event) => {
-            const scrollY = window.scrollY
-            requestAnimationFrame(() => window.scrollTo({ top: scrollY, behavior: "instant" }))
-            event.originalEvent.preventDefault()
-          },
-        }}
         style={{ height: "100%", width: "100%" }}
       >
+        <ScrollGuard />
         <TileLayer
           key={`${tileStyle}-single`}
           attribution={activeAttribution}
@@ -158,6 +166,9 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
                   <span>Reportado por: {incident.source === "citizen" ? "Ciudadano" : incident.source === "social" ? "Agente IA / Redes sociales" : incident.source === "sensor" ? "Sensor" : "Cámara"}</span>
                   {incident.sourceDetails.username && <span>Usuario: {incident.sourceDetails.username}</span>}
                   {incident.sourceDetails.platform && <span>Canal: {incident.sourceDetails.platform}</span>}
+                  {incident.sourceDetails.hashtag && (
+                    <span>Disparado por: {incident.sourceDetails.hashtag}{(incident.sourceDetails.reports_count ?? 1) > 1 ? ` · ${incident.sourceDetails.reports_count} reportes` : ""}</span>
+                  )}
                   <span>Afectados: {incident.affectedPeople}</span>
                   <span>{incident.timestamp.toLocaleString("es-AR")}</span>
                 </div>

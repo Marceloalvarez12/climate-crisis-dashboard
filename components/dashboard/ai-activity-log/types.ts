@@ -17,6 +17,9 @@ export interface ActivityItem {
   confidence?: number
   reasoning?:  ReasoningStep[]
   arkivKey?:   string
+  incidentId?: string
+  /** Post social que originó la alerta (cuando la disparó el hashtag) */
+  sourcePost?: { platform: string; author: string; hashtag: string }
 }
 
 export interface SatelliteValidation {

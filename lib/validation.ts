@@ -25,6 +25,25 @@ export const ResourcePatchSchema = z.object({
   incidente_id: z.string().nullable().optional(),
 })
 
+export const SocialMentionSchema = z.object({
+  postId:    z.string().min(1).max(200).optional(),
+  platform:  z.enum(["facebook", "instagram", "twitter", "tiktok"]),
+  author:    z.string().min(1).max(120),
+  authorUrl: z.string().url().max(500).optional(),
+  text:      z.string().min(1).max(2200),
+  imageUrl:  z.string().url().max(1000).optional(),
+  location:  z.string().max(200).optional(),
+  lat:       z.number().min(-90).max(90).optional(),
+  lng:       z.number().min(-180).max(180).optional(),
+  postedAt:  z.string().datetime().optional(),
+  simulated: z.boolean().optional(),
+}).refine((m) => (m.lat === undefined) === (m.lng === undefined), {
+  message: "lat y lng deben enviarse juntos",
+  path: ["lat"],
+})
+
+export type SocialMentionInput = z.infer<typeof SocialMentionSchema>
+
 export const AgentLogSchema = z.object({
   scan_id: z.string().optional(),
   platform: z.string().max(50).optional(),

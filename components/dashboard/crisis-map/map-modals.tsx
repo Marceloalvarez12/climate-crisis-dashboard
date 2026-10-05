@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { Users, Clock, MapPinned, Twitter, Send, Phone, CheckCircle2, Truck, ShieldAlert, ShieldCheck, Loader2, ExternalLink, FileText } from "lucide-react"
+import { Users, Clock, MapPinned, Twitter, Facebook, Instagram, Hash, Repeat2, Send, Phone, CheckCircle2, Truck, ShieldAlert, ShieldCheck, Loader2, ExternalLink, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -343,27 +343,76 @@ function StatCard({ icon, label, children, small }: { icon: React.ReactNode; lab
   )
 }
 
+const SOCIAL_PLATFORM_STYLE: Record<string, { icon: typeof Twitter; tint: string }> = {
+  facebook:  { icon: Facebook,  tint: "bg-blue-600/20 text-blue-500" },
+  instagram: { icon: Instagram, tint: "bg-pink-500/20 text-pink-400" },
+  twitter:   { icon: Twitter,   tint: "bg-sky-500/20 text-sky-300" },
+}
+
 // Detalle según la fuente del incidente
 function SourceDetail({ incident }: { incident: Incident }) {
   const { source, sourceDetails: sd } = incident
 
   if (source === "social") {
+    const { icon: PlatformIcon, tint } = SOCIAL_PLATFORM_STYLE[sd.platform_id ?? ""] ?? SOCIAL_PLATFORM_STYLE.twitter
+    const reports = sd.reports_count ?? 1
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-            <Twitter className="h-4 w-4 text-blue-400" />
+          <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", tint)}>
+            <PlatformIcon className="h-4 w-4" />
           </div>
-          <span className="text-sm font-medium text-blue-400">{sd.username}</span>
+          {sd.author_url ? (
+            <a href={sd.author_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-400 hover:underline">
+              {sd.username}
+            </a>
+          ) : (
+            <span className="text-sm font-medium text-blue-400">{sd.username}</span>
+          )}
+          {sd.hashtag && (
+            <Badge variant="outline" className="ml-auto gap-0.5 border-sky-500/40 bg-sky-500/10 font-mono text-[10px] text-sky-300">
+              <Hash className="h-3 w-3" />
+              {sd.hashtag.replace(/^#/, "")}
+            </Badge>
+          )}
         </div>
         <p className="text-sm text-foreground bg-secondary/50 rounded-lg p-3 italic">
           &quot;{sd.content}&quot;
         </p>
+        {sd.ai_analysis?.summary && sd.ai_analysis.summary !== sd.content && (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">AI summary:</span> {sd.ai_analysis.summary}
+          </p>
+        )}
+        {(reports > 1 || sd.analyzer) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {reports > 1 && (
+              <Badge variant="outline" className="gap-1 border-sky-500/40 text-[10px] text-sky-300">
+                <Repeat2 className="h-3 w-3" />
+                {reports} reports corroborate this incident
+              </Badge>
+            )}
+            {sd.analyzer && (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                {sd.analyzer === "llm" ? "Classified by LLM" : "Classified by rules"}
+              </Badge>
+            )}
+          </div>
+        )}
+        {sd.corroborations && sd.corroborations.length > 0 && (
+          <ul className="space-y-1 border-l-2 border-sky-500/30 pl-3">
+            {sd.corroborations.slice(-3).map((c) => (
+              <li key={c.post_id} className="text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground">{c.author}</span> · {c.content}
+              </li>
+            ))}
+          </ul>
+        )}
         {sd.imageUrl && (
           <div className="relative h-[140px] w-full rounded-lg overflow-hidden bg-zinc-950 border border-border/40">
             <img src={sd.imageUrl} alt="Incident image" className="absolute inset-0 w-full h-full object-contain" />
             <div className="absolute bottom-2 right-2 z-10">
-              <Badge className="bg-black/70 text-white text-[10px]">Image attached to tweet</Badge>
+              <Badge className="bg-black/70 text-white text-[10px]">Image attached to post</Badge>
             </div>
           </div>
         )}

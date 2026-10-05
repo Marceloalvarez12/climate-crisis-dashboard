@@ -1,4 +1,4 @@
-import { Droplets, Flame, Wind, AlertTriangle, Twitter, Thermometer, Camera, Store, Siren, Car } from "lucide-react"
+import { Droplets, Flame, Wind, AlertTriangle, Hash, Thermometer, Camera, Store, Siren, Car } from "lucide-react"
 import type { IncidentType, IncidentSource } from "@/lib/types"
 
 // ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ export function severityHex(severity: string): string {
 
 export function SourceIcon({ source }: { source: IncidentSource }) {
   switch (source) {
-    case "social":  return <Twitter     className="h-3 w-3" />
+    case "social":  return <Hash        className="h-3 w-3" />
     case "sensor":  return <Thermometer className="h-3 w-3" />
     case "camera":  return <Camera      className="h-3 w-3" />
     case "citizen": return <AlertTriangle className="h-3 w-3" />

@@ -1,5 +1,6 @@
 import { SocialMediaAgent } from "@/lib/agents/social-media-agent"
 import { LlmAnalyzer } from "@/lib/agents/llm-analyzer"
+import { TRIGGER_HASHTAG } from "@/lib/agents/hashtag"
 import { apiSuccess, apiError } from "@/lib/services/api-response"
 
 export async function GET() {
@@ -19,6 +20,7 @@ export async function GET() {
         lastScan:      new Date().toISOString()
       })),
       activeConnectors: activeCount,
+      triggerHashtag:  TRIGGER_HASHTAG,
       geminiConfigured: !!process.env.GOOGLE_AI_API_KEY,
       openrouterConfigured: usingOpenRouter,
       timestamp:       new Date().toISOString(),
@@ -38,7 +40,7 @@ export async function POST() {
 
     console.log(
       `[API/agent] Live scan completed: ${result.postsCollected} posts, ` +
-      `${result.incidentsFound.length} incidents detected`
+      `${result.postsMatched} with ${result.hashtag}, ${result.incidentsFound.length} incidents detected`
     )
 
     return apiSuccess(result)
