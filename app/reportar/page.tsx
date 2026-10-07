@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
-import { ShieldCheck, Loader2, ArrowLeft, AlertTriangle, MapPin, Crosshair, Copy, Check, ExternalLink } from "lucide-react"
+import { ShieldCheck, Loader2, ArrowLeft, AlertTriangle, MapPin, Crosshair, Copy, Check, ExternalLink, Search, Navigation, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -84,6 +84,7 @@ async function geocodeAddress(address: string): Promise<GeocodedLocation | null>
 export default function ReportarPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ubicacion, setUbicacion] = useState("")
   const [picked, setPicked] = useState<GeocodedLocation | null>(null)
@@ -100,6 +101,12 @@ export default function ReportarPage() {
   } | null>(null)
   const [copied, setCopied] = useState(false)
 
+  useEffect(() => {
+    if (!reportResult) return
+    const timer = setTimeout(() => router.replace(`/mapa?reporte=${encodeURIComponent(reportResult.incidentId)}`), 4000)
+    return () => clearTimeout(timer)
+  }, [reportResult, router])
+
   // ── Success screen: mostrar el hash ANTES de ir al seguimiento ──
   if (reportResult) {
     return (
@@ -110,9 +117,9 @@ export default function ReportarPage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
               <ShieldCheck className="h-7 w-7 text-emerald-400" />
             </div>
-            <h1 className="text-xl font-bold text-white">Report sealed on-chain</h1>
+            <h1 className="text-xl font-bold text-white">Reporte recibido</h1>
             <p className="mt-1 text-xs text-emerald-300">
-              Your proof was verified and recorded. Save the hash below to audit this report anytime.
+              Tu reporte ya está en el mapa. Volverás automáticamente en unos segundos; guardá este comprobante para seguirlo.
             </p>
             {reportResult.mailStatus && (
               <p className="mt-2 text-[11px] text-zinc-400">
@@ -126,7 +133,7 @@ export default function ReportarPage() {
 
             {/* Tracking ID */}
             <div className="mt-6 space-y-1.5 text-left">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/70">Tracking ID</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/70">Código de seguimiento</p>
               <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-black/40 px-3 py-2.5">
                 <span className="min-w-0 flex-1 break-all font-mono text-[11px] text-emerald-200">
                   {reportResult.incidentId}
@@ -144,7 +151,7 @@ export default function ReportarPage() {
             {/* ZK proof hash — siempre visible, aunque sea el tracking como fallback */}
             <div className="mt-4 space-y-1.5 text-left">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400/70">
-                Proof hash
+                Comprobante digital
               </p>
               <div className="flex items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-950/20 px-3 py-2.5">
                 <span className="min-w-0 flex-1 break-all font-mono text-[11px] text-indigo-200">
@@ -168,8 +175,7 @@ export default function ReportarPage() {
               </div>
               {!reportResult.txHash && (
                 <p className="text-[9px] text-zinc-500">
-                  Stellar está temporalmente saturado. El Tracking ID funciona como hash de
-                  verificación en el portal de auditoría.
+                  Guardá el código de seguimiento para consultar el estado de tu reporte.
                 </p>
               )}
             </div>
@@ -184,7 +190,7 @@ export default function ReportarPage() {
                   className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  View proof on Stellar Soroban
+                  Ver comprobante en Stellar
                 </a>
               )}
               {/* Portal de auditoría de Braga — verifica el estado del reporte en cualquier momento */}
@@ -195,19 +201,22 @@ export default function ReportarPage() {
                 className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Audit this report on Braga Portal →
+                Consultar auditoría del reporte →
               </a>
               <button
-                onClick={() => router.push(reportResult.trackingUrl)}
+                onClick={() => router.replace(`/mapa?reporte=${encodeURIComponent(reportResult.incidentId)}`)}
                 className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-950/30 transition-colors hover:bg-emerald-500"
               >
-                Track my report live →
+                Ver mi reporte en el mapa →
               </button>
+              <a href={reportResult.trackingUrl} className="text-center text-xs text-emerald-300 hover:underline">
+                Seguir mi reporte y ver el comprobante
+              </a>
               <button
                 onClick={() => location.reload()}
                 className="rounded-lg px-3 py-2 text-[11px] text-zinc-500 transition-colors hover:text-zinc-300"
               >
-                Submit another report
+                Hacer otro reporte
               </button>
             </div>
           </div>
@@ -220,6 +229,24 @@ export default function ReportarPage() {
     setUbicacion(value)
     setPicked(null)
     setManualPick(null)
+    setError(null)
+  }
+
+  async function handleFindAddress() {
+    if (!ubicacion.trim() || geocoding) return
+    setGeocoding(true)
+    setError(null)
+    try {
+      const result = await geocodeAddress(ubicacion.trim())
+      if (!result) {
+        setError("No encontramos esa dirección en Tucumán. Probá con otra referencia o seleccioná el lugar en el mapa.")
+        return
+      }
+      setPicked(result)
+      setManualPick(null)
+    } finally {
+      setGeocoding(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -228,19 +255,22 @@ export default function ReportarPage() {
     setError(null)
 
     const form = new FormData(e.currentTarget)
-    const street = (form.get("ubicacion") as string).trim()
+    const street = ((form.get("ubicacion") as string) || "").trim()
 
     // Prioridad: pin movido manualmente > resultado de Nominatim
-    let location: GeocodedLocation | null = manualPick
-    let geocodeFailed = false
-    if (!location) {
-      location = await geocodeAddress(street)
-      geocodeFailed = !location
-    }
+    let location: GeocodedLocation | null = manualPick ?? picked
+    if (!location && street.length >= 3) location = await geocodeAddress(street)
     if (!location) {
       setError(
-        "No pudimos ubicar esa dirección en San Miguel de Tucumán. Ajustá el pin en el mapa a la ubicación exacta y volvé a enviar.",
+        "Indicá una dirección válida o marcá el punto en el mapa antes de enviar el reporte.",
       )
+      setLoading(false)
+      return
+    }
+
+    if (location.lat < TUCUMAN_BBOX.minLat || location.lat > TUCUMAN_BBOX.maxLat ||
+        location.lng < TUCUMAN_BBOX.minLng || location.lng > TUCUMAN_BBOX.maxLng) {
+      setError("Seleccioná un punto dentro de la zona habilitada de San Miguel de Tucumán.")
       setLoading(false)
       return
     }
@@ -309,62 +339,67 @@ export default function ReportarPage() {
       {/* Header */}
       <header className="relative border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md px-6 py-4">
         <div className="mx-auto max-w-4xl flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors">
+          <a href="/mapa" className="flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors">
             <ArrowLeft className="h-4 w-4" />
-            Back to Control Center
+            Volver al mapa
           </a>
-          <div className="flex items-center gap-3">
-            <a href="/mapa" className="flex items-center gap-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">
-              <MapPin className="h-4 w-4" />
-              Live map
-            </a>
-            <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500">
-              <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
-              ZK CIRCUIT · GROTH16
-            </div>
+          <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300">
+            <ShieldCheck className="h-4 w-4 text-cyan-400" />
+            ZNTINEL <span className="font-normal text-zinc-500">/ PORTAL CIUDADANO</span>
           </div>
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-3xl px-4 py-12 md:px-6">
+      <main className="relative mx-auto max-w-3xl px-4 py-8 md:px-6 md:py-12">
         {/* Title section */}
-        <div className="text-center space-y-3 mb-10">
-          <Badge className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/15 border-indigo-500/20 text-xs px-3 py-1 font-mono uppercase tracking-wider">
-            Anonymous Verifiable Report
+        <div className="mb-8 space-y-3">
+          <Badge className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/15 border-indigo-500/20 text-xs px-3 py-1">
+            Reporte ciudadano
           </Badge>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-100 via-white to-zinc-400 sm:text-4xl">
-            ZK Citizen Report
+          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+            ¿Qué está pasando?
           </h1>
-          <p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-400">
-            Prove you are inside an official risk zone <span className="text-zinc-200">without revealing your exact location</span>.
-            The proof is generated locally (Circom + Groth16) and verified on Stellar Soroban — your report becomes publicly checkable while your position stays private.
+          <p className="max-w-xl text-sm leading-relaxed text-zinc-400">
+            Indicá el lugar y describí la emergencia. Al enviarla volverás al mapa para verla en vivo.
+            Tu dirección exacta no se mostrará en la vista pública.
           </p>
         </div>
 
         {/* Form card */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 backdrop-blur-sm shadow-xl shadow-black/40">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 shadow-2xl shadow-black/30">
+          <form onSubmit={handleSubmit} className="space-y-0">
+            <section className="space-y-5 border-b border-zinc-800 p-5 sm:p-7">
+              <div className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-xs font-bold text-cyan-300">01</span>
+                <div>
+                  <h2 className="font-semibold text-white">Ubicación de la emergencia</h2>
+                  <p className="text-xs text-zinc-400">Buscá la dirección y ajustá el pin en el mapa si hace falta.</p>
+                </div>
+              </div>
             {/* Location */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="ubicacion" className="text-xs text-zinc-300">
-                  Street or avenue
-                </Label>
-                <span className="font-mono text-[9px] text-zinc-600">
-                  se geolocaliza para ubicar el incidente en el mapa
-                </span>
-              </div>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                <Input
-                  id="ubicacion"
-                  name="ubicacion"
-                  placeholder="Ej: Av. Sarmiento y San Martín"
-                  value={ubicacion}
-                  onChange={(e) => handleUbicacionChange(e.target.value)}
-                  className="h-11 border-zinc-700 bg-zinc-950/80 pl-9 font-mono text-sm placeholder-zinc-600 focus-visible:ring-indigo-500"
-                  required
-                />
+              <Label htmlFor="ubicacion" className="text-xs text-zinc-300">Calle o dirección <span className="text-zinc-500">(opcional si marcás el mapa)</span></Label>
+              <div className="flex gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <Input
+                    id="ubicacion"
+                    name="ubicacion"
+                    placeholder="Ej: Av. Sarmiento y San Martín"
+                    value={ubicacion}
+                    onChange={(e) => handleUbicacionChange(e.target.value)}
+                    disabled={geocoding}
+                    className="h-11 border-zinc-700 bg-zinc-950/80 pl-9 text-sm placeholder-zinc-600 focus-visible:ring-cyan-500"
+                    minLength={3}
+                    maxLength={200}
+                    required={!manualPick}
+                  />
+                </div>
+                <Button type="button" variant="outline" disabled={geocoding || ubicacion.trim().length < 3} onClick={handleFindAddress}
+                  className="h-11 gap-2 border-zinc-700 bg-zinc-800 text-zinc-100 hover:bg-zinc-700 hover:text-white">
+                  {geocoding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  <span className="hidden sm:inline">Buscar</span>
+                </Button>
               </div>
               {picked && (
                 <div className="flex items-center gap-1.5 rounded-md border border-indigo-500/20 bg-indigo-500/5 px-2.5 py-1.5 text-[10px]">
@@ -372,7 +407,7 @@ export default function ReportarPage() {
                     {picked.lat.toFixed(4)}, {picked.lng.toFixed(4)}
                   </span>
                   <span className="text-zinc-500">
-                    inside {picked.nombre} risk box
+                    Cerca de {picked.nombre}
                   </span>
                 </div>
               )}
@@ -390,43 +425,54 @@ export default function ReportarPage() {
             {/* Mapa con pin arrastrable — el ciudadano confirma/ajusta la ubicación exacta */}
             <div className="space-y-1.5">
               <Label className="text-xs text-zinc-300">
-                Ubicación exacta <span className="text-zinc-600">(arrastrá el pin o hacé click en el mapa)</span>
+                Ajustá el punto <span className="text-zinc-500">(tocá el mapa o arrastrá el pin)</span>
               </Label>
               <LocationPickerMap
-                initial={picked ?? { lat: -26.8241, lng: -65.2226, nombre: "San Miguel de Tucumán" }}
+                key={picked ? `${picked.lat}-${picked.lng}` : "default"}
+                initial={picked}
                 onChange={(v) => setManualPick({ lat: v.lat, lng: v.lng, nombre: v.nombre })}
                 height={260}
               />
+              <p className="flex items-center gap-1.5 text-xs text-zinc-400"><Navigation className="h-3.5 w-3.5 text-cyan-400" />El mapa público no muestra el punto exacto.</p>
             </div>
+            </section>
 
+            <section className="space-y-5 border-b border-zinc-800 p-5 sm:p-7">
+              <div className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-xs font-bold text-cyan-300">02</span>
+                <div>
+                  <h2 className="font-semibold text-white">Contanos lo que sucede</h2>
+                  <p className="text-xs text-zinc-400">Estos datos ayudarán a entender y priorizar la emergencia.</p>
+                </div>
+              </div>
             {/* Type + severity */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="tipo" className="text-xs text-zinc-300">Incident type</Label>
-                <Select name="tipo" defaultValue="flood">
-                  <SelectTrigger className="h-11 border-zinc-700 bg-zinc-950/80">
-                    <SelectValue />
+                <Label htmlFor="tipo" className="text-xs text-zinc-300">Tipo de emergencia</Label>
+                <Select name="tipo" required>
+                  <SelectTrigger id="tipo" className="h-11 w-full border-zinc-700 bg-zinc-950/80">
+                    <SelectValue placeholder="Elegí una opción" />
                   </SelectTrigger>
                   <SelectContent className="border-zinc-700 bg-zinc-950">
-                    <SelectItem value="flood">Flood</SelectItem>
-                    <SelectItem value="fire">Fire</SelectItem>
-                    <SelectItem value="storm">Storm</SelectItem>
-                    <SelectItem value="accident">Accident</SelectItem>
-                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="flood">Inundación</SelectItem>
+                    <SelectItem value="fire">Incendio</SelectItem>
+                    <SelectItem value="storm">Tormenta</SelectItem>
+                    <SelectItem value="accident">Accidente</SelectItem>
+                    <SelectItem value="general">Otra emergencia</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="severidad" className="text-xs text-zinc-300">Severity</Label>
+                <Label htmlFor="severidad" className="text-xs text-zinc-300">Gravedad</Label>
                 <Select name="severidad" defaultValue="medium">
-                  <SelectTrigger className="h-11 border-zinc-700 bg-zinc-950/80">
+                  <SelectTrigger id="severidad" className="h-11 w-full border-zinc-700 bg-zinc-950/80">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="border-zinc-700 bg-zinc-950">
-                    <SelectItem value="critical">Critical</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="critical">Crítica</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="medium">Media</SelectItem>
+                    <SelectItem value="low">Baja</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -435,31 +481,42 @@ export default function ReportarPage() {
             {/* People + description */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-[110px_1fr]">
               <div className="space-y-1.5">
-                <Label htmlFor="personasAfectadas" className="text-xs text-zinc-300">Affected</Label>
+                <Label htmlFor="personasAfectadas" className="text-xs text-zinc-300">Personas afectadas</Label>
                 <Input
                   id="personasAfectadas"
                   name="personasAfectadas"
                   type="number"
                   min={0}
+                  max={100000}
                   defaultValue={0}
                   className="h-11 border-zinc-700 bg-zinc-950/80 font-mono"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="descripcion" className="text-xs text-zinc-300">
-                  Description <span className="text-zinc-600">(optional)</span>
+                  Descripción <span className="text-zinc-500">(opcional)</span>
                 </Label>
                 <Textarea
                   id="descripcion"
                   name="descripcion"
                   maxLength={500}
-                  rows={2}
+                  rows={3}
                   className="resize-none border-zinc-700 bg-zinc-950/80 text-sm placeholder-zinc-600"
-                  placeholder="What are you seeing right now?"
+                  placeholder="Contanos qué estás viendo"
                 />
               </div>
             </div>
 
+            </section>
+
+            <section className="space-y-5 p-5 sm:p-7">
+              <div className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-xs font-bold text-cyan-300">03</span>
+                <div>
+                  <h2 className="font-semibold text-white">Confirmá tu reporte</h2>
+                  <p className="text-xs text-zinc-400">Podés recibir el comprobante por correo. No es obligatorio.</p>
+                </div>
+              </div>
             {/* Contacto: para recibir el hash + link de auditoría por email */}
             <div className="space-y-1.5">
               <Label htmlFor="contacto" className="text-xs text-zinc-300">
@@ -482,32 +539,32 @@ export default function ReportarPage() {
             {/* Submit */}
             <Button
               type="submit"
-              disabled={loading}
-              className="h-12 w-full bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-950/30 hover:bg-indigo-500"
+              disabled={loading || geocoding}
+              className="h-12 w-full bg-red-600 text-sm font-bold text-white shadow-lg shadow-red-950/30 hover:bg-red-500"
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating proof locally...
+                  Enviando reporte...
                 </>
               ) : (
                 <>
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  Send ZK Report
+                  <FileText className="mr-2 h-4 w-4" />
+                  Enviar reporte
                 </>
               )}
             </Button>
 
             {/* Privacy footnote */}
-            <p className="flex items-center gap-1.5 text-center text-[10px] leading-relaxed text-zinc-600">
-              <ShieldCheck className="h-3 w-3 shrink-0 text-indigo-500/60" />
-              Circom Groth16 runs in your browser. Neither the server nor the chain ever sees
-              your exact point — only zone membership (bbox {TUCUMAN_BBOX.minLat}° to {TUCUMAN_BBOX.maxLat}°).
+            <p className="flex items-start gap-2 rounded-lg border border-cyan-500/15 bg-cyan-500/5 p-3 text-xs leading-relaxed text-zinc-300">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+              Tu ubicación exacta se usa para registrar el incidente, pero el mapa público solo muestra una zona aproximada.
             </p>
+            </section>
           </form>
 
           {error && (
-            <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-red-500/20 bg-red-950/20 p-4">
+            <div role="alert" className="m-5 flex items-start gap-2.5 rounded-lg border border-red-500/20 bg-red-950/20 p-4 sm:mx-7">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
               <p className="text-xs text-red-300">{error}</p>
             </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet"
 import type { Incident } from "@/lib/types"
 import { createLeafletIcon, LEAFLET_DARK_STYLES } from "./leaflet-icon"
 import { HeatMapLayer } from "./heat-map-layer"
@@ -59,6 +59,7 @@ interface MapInnerProps {
   incidents: Incident[]
   onMarkerClick: (incident: Incident) => void
   tileStyle?: TileStyle
+  focusedIncidentId?: string
 }
 
 // Evita que un click en el mapa haga saltar el scroll de la página.
@@ -75,7 +76,19 @@ function ScrollGuard() {
   return null
 }
 
-export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: MapInnerProps) {
+function FocusIncident({ coordinates }: { coordinates?: { lat: number; lng: number } }) {
+  const map = useMap()
+  const lat = coordinates?.lat
+  const lng = coordinates?.lng
+
+  useEffect(() => {
+    if (lat !== undefined && lng !== undefined && Number.isFinite(lat) && Number.isFinite(lng)) map.flyTo([lat, lng], 15)
+  }, [map, lat, lng])
+
+  return null
+}
+
+export function MapInner({ incidents, onMarkerClick, tileStyle = "street", focusedIncidentId }: MapInnerProps) {
   const config = TILE_CONFIGS[tileStyle]
   const [activeUrl, setActiveUrl] = useState(config.url)
   const [activeAttribution, setActiveAttribution] = useState(config.attribution)
@@ -129,6 +142,7 @@ export function MapInner({ incidents, onMarkerClick, tileStyle = "street" }: Map
         style={{ height: "100%", width: "100%" }}
       >
         <ScrollGuard />
+        {focusedIncidentId && <FocusIncident coordinates={incidents.find((i) => i.id === focusedIncidentId)?.coordinates} />}
         <TileLayer
           key={`${tileStyle}-single`}
           attribution={activeAttribution}

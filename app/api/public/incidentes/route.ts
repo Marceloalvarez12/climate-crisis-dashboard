@@ -24,15 +24,18 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(50)
 
-    if (error) return apiError(error.message)
+    if (error) {
+      console.error("[Public incidents] Query failed:", error)
+      return apiError("No se pudieron cargar los incidentes", 503)
+    }
 
     const incidents = (data ?? []).map((i) => ({
       id:                 i.id,
       tipo:               i.tipo,
       severidad:          i.severidad,
-      ubicacion:          i.ubicacion,
-      latitud:            i.latitud,
-      longitud:           i.longitud,
+      ubicacion:          i.fuente === "citizen" ? "Reporte ciudadano · zona aproximada" : i.ubicacion,
+      latitud:            i.fuente === "citizen" ? Math.round(i.latitud * 100) / 100 : i.latitud,
+      longitud:           i.fuente === "citizen" ? Math.round(i.longitud * 100) / 100 : i.longitud,
       personas_afectadas: i.personas_afectadas,
       fuente:             i.fuente,
       // Las detecciones sociales aún no validadas se señalan al público
@@ -45,6 +48,7 @@ export async function GET() {
       200,
     )
   } catch (err) {
-    return apiError(err instanceof Error ? err.message : String(err))
+    console.error("[Public incidents] Unavailable:", err)
+    return apiError("No se pudieron cargar los incidentes", 503)
   }
 }

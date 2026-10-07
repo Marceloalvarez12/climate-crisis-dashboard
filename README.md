@@ -136,7 +136,7 @@ Ciudadano entra a /reportar
 
 - El ciudadano demuestra que está dentro de una zona de riesgo oficial.
 - El proof es públicamente verificable; la ubicación exacta no se expone en la prueba.
-- El sistema guarda la ubicación exacta sólo en la base de datos operativa para mostrar el punto en el mapa.
+- La ubicación exacta se guarda en la base operativa; el mapa ciudadano muestra solo una zona aproximada (~1 km) y no publica la dirección del reporte.
 - Endpoints:
   - `POST /api/incidentes/zk-verify` — público, genera y verifica un proof sin persistir.
   - `POST /api/incidentes/zk-report` — protegido, flujo completo con persistencia.
@@ -159,16 +159,16 @@ Y ver:
 
 ### 4. Mapa público de emergencias (`/mapa`)
 
-Vista ciudadana de solo lectura — sin paneles operativos ni controles:
+Vista ciudadana de solo lectura — sin paneles operativos. Permite buscar zonas, filtrar por tipo y origen, seleccionar incidentes y ver una ficha resumida sobre el mapa:
 
 ```
 /mapa → GET /api/public/incidentes (polling cada 5 s) → marcadores en tiempo real
 ```
 
-- `GET /api/public/incidentes` es **público** (`PUBLIC_PATHS` del middleware) pero devuelve campos sanitizados: nunca expone `fuente_detalles` (autores, razonamiento de IA, claves on-chain internas).
-- Los incidentes sociales aún no validados se muestran con el tag "(en verificación)".
-- El CTA "Reportar emergencia" enlaza a `/reportar` (ZK citizen report).
-- Toca el marcador para ver tipo, severidad, ubicación y afectados.
+- `GET /api/public/incidentes` es **público** (`PUBLIC_PATHS` del middleware) y no expone `fuente_detalles`; para reportes ciudadanos sustituye la dirección y redondea las coordenadas a 0,01°.
+- Los incidentes sociales aún no validados se muestran como "en verificación".
+- El botón "Hacer un reporte" abre `/reportar` (reporte ZK) con formulario en tres secciones y búsqueda de dirección con pin ajustable. Al terminar se muestra el comprobante unos segundos y se vuelve automáticamente a `/mapa?reporte=<id>`, donde se centra el mapa y se ofrece seguimiento.
+- El mapa vuelve a consultar la base cada 5 s; requiere las variables de Supabase para ver los reportes reales.
 
 ---
 
