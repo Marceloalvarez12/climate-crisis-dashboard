@@ -8,18 +8,11 @@
 import type { DbIncident, DbResource } from "@/lib/types"
 import type { MentionOutcome } from "@/lib/agents/types"
 
-const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET ?? ""
-
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  ...(API_SECRET ? { "x-api-secret": API_SECRET } : {}),
-})
+const authHeaders = () => ({ "Content-Type": "application/json" })
 
 // SWR fetcher genérico
 export const fetcher = (url: string) =>
-  fetch(url, {
-    headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
-  }).then((res) => {
+  fetch(url).then((res) => {
     if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
     return res.json()
   })
@@ -105,9 +98,7 @@ export async function createZkCitizenReport(payload: {
 // ---------------------------------------------------------------------------
 
 export async function fetchRecursos(): Promise<DbResource[]> {
-  const res = await fetch("/api/recursos", {
-    headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
-  })
+  const res = await fetch("/api/recursos")
   if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
   return res.json()
 }

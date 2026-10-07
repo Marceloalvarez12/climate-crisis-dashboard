@@ -1,37 +1,98 @@
 import { NextRequest } from "next/server"
 import { supabase } from "@/lib/supabase"
-import { ResourcePatchSchema } from "@/lib/validation"
+import { ResourcePatchSchema, ResourceCreateSchema } from "@/lib/validation"
 import { apiSuccess, apiError, apiValidationError } from "@/lib/services/api-response"
+import { calculateEstado } from "@/lib/resource-helpers"
+import { requireStaff } from "@/lib/supabase-auth"
 import type { DbResource } from "@/lib/types"
+
+const RESOURCE_COLS = "id, tipo, nombre, cantidad, cantidad_disponible, estado, ubicacion"
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
+    // Tolerante: si la migración de cantidades no se corrió todavía,
+    // cae al shape viejo sin romper el dashboard.
+    const result = await supabase
       .from("recursos")
-      .select("*")
-      .order("nombre", { ascending: true })
+      .select(RESOURCE_COLS)
+      .neq("estado", "retired")
+      .order("tipo", { ascending: true })
 
-    if (error) return apiError(error.message)
-    return apiSuccess(data || [])
+    let data = result.data
+    if (result.error) {
+      const fallback = await supabase
+        .from("recursos")
+        .select("id, tipo, nombre, estado, ubicacion")
+        .order("tipo", { ascending: true })
+      if (fallback.error) return apiError(fallback.error.message)
+      data = (fallback.data ?? []).map(r => ({ ...r, cantidad: 1, cantidad_disponible: 1 }))
+    }
+
+    const resources = (data ?? []).map(r => ({
+      ...r,
+      cantidad: r.cantidad ?? 1,
+      cantidad_disponible: r.cantidad_disponible ?? (r.cantidad ?? 1),
+    }))
+    return apiSuccess(resources)
   } catch (err) {
     return apiError(String(err))
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    try { await requireStaff("admin") } catch { return apiError("Acceso denegado", 403) }
+    const parsed = ResourceCreateSchema.safeParse(await request.json())
+    if (!parsed.success) return apiValidationError(parsed.error.flatten())
+
+    const { nombre, tipo, cantidad, ubicacion } = parsed.data
+    const { data, error } = await supabase
+      .from("recursos")
+      .insert({ nombre, tipo, cantidad, cantidad_disponible: cantidad, ubicacion, estado: "available" })
+      .select(RESOURCE_COLS)
+      .single()
+
+    if (error) return apiError(error.message)
+    return apiSuccess({ ...data, cantidad: data.cantidad ?? 1, cantidad_disponible: data.cantidad_disponible ?? 1 })
+  } catch (err) {
+    return apiError(err instanceof Error ? err.message : "Error interno")
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-
     const parsed = ResourcePatchSchema.safeParse(body)
-    if (!parsed.success) {
-      return apiValidationError(parsed.error.flatten())
-    }
+    if (!parsed.success) return apiValidationError(parsed.error.flatten())
 
-    const { id, estado, incidente_id } = parsed.data
+    const { id, estado, incidente_id, nombre, tipo, cantidad, cantidad_disponible, ubicacion } = parsed.data
+
+    // Edición de ficha (nombre/tipo/cantidad/base) es admin-only; el despacho
+    // operativo (estado, incidente_id, cantidad_disponible) lo hace cualquier staff.
+    const isEdit = nombre !== undefined || tipo !== undefined || cantidad !== undefined || ubicacion !== undefined || estado === "retired"
+    try {
+      const { profile } = await requireStaff(isEdit ? "admin" : undefined)
+      if (!isEdit && !["admin", "operador"].includes(profile.rol)) return apiError("Acceso denegado", 403)
+    } catch { return apiError("Acceso denegado", 403) }
 
     const updatePayload: Partial<DbResource> = { updated_at: new Date().toISOString() }
     if (estado !== undefined) updatePayload.estado = estado
     if (incidente_id !== undefined) updatePayload.incidente_id = incidente_id
+    if (nombre !== undefined) updatePayload.nombre = nombre
+    if (tipo !== undefined) updatePayload.tipo = tipo
+    if (ubicacion !== undefined) updatePayload.ubicacion = ubicacion
+    if (cantidad !== undefined) updatePayload.cantidad = cantidad
+
+    if (cantidad_disponible !== undefined || cantidad !== undefined) {
+      const { data: current } = await supabase
+        .from("recursos").select("cantidad, cantidad_disponible").eq("id", id).single()
+      const total = cantidad ?? current?.cantidad ?? 1
+      const disp = cantidad_disponible !== undefined
+        ? cantidad_disponible
+        : Math.min(current?.cantidad_disponible ?? total, total)
+      updatePayload.cantidad_disponible = Math.max(0, Math.min(total, disp))
+      updatePayload.estado = calculateEstado(total, updatePayload.cantidad_disponible)
+    }
 
     const { data, error } = await supabase
       .from("recursos")
@@ -43,6 +104,26 @@ export async function PATCH(request: NextRequest) {
     if (error) return apiError(error.message)
     return apiSuccess(data)
   } catch (err) {
-    return apiError(String(err))
+    return apiError(err instanceof Error ? err.message : "Error interno")
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    try { await requireStaff("admin") } catch { return apiError("Acceso denegado", 403) }
+    const id = new URL(request.url).searchParams.get("id")
+    if (!id) return apiValidationError("ID de recurso requerido")
+
+    const { data, error } = await supabase
+      .from("recursos")
+      .update({ estado: "retired", updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select(RESOURCE_COLS)
+      .single()
+
+    if (error) return apiError(error.message)
+    return apiSuccess(data)
+  } catch (err) {
+    return apiError(err instanceof Error ? err.message : "Error interno")
   }
 }

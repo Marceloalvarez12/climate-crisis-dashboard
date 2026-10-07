@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet"
 import L from "leaflet"
-import { Crosshair, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 // Estilos Leaflet: mismo look oscuro táctico que el mapa principal
 const PICKER_STYLES = `
@@ -26,6 +26,12 @@ const PICKER_STYLES = `
 
 // Centro Tucumán
 const CENTER: [number, number] = [-26.8241, -65.2226]
+const PIN_ICON = L.divIcon({
+  className: "picker-pin",
+  html: `<div style="width:26px;height:26px;border-radius:50%;background:#6366f1;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:grab;"></div>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+})
 
 export interface LocationPickerValue {
   lat: number
@@ -72,20 +78,11 @@ function DraggableMarker({
   onPositionChange: (lat: number, lng: number) => void
 }) {
   const markerRef = useRef<L.Marker | null>(null)
-  const pinIcon = useRef(
-    L.divIcon({
-      className: "picker-pin",
-      html: `<div style="width:26px;height:26px;border-radius:50%;background:#6366f1;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:grab;"></div>`,
-      iconSize: [26, 26],
-      iconAnchor: [13, 13],
-    }),
-  )
-
   return (
     <Marker
       ref={markerRef}
       position={position}
-      icon={pinIcon.current}
+      icon={PIN_ICON}
       draggable
       eventHandlers={{
         dragend: () => {

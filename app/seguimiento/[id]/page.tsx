@@ -44,7 +44,7 @@ export default function SeguimientoPage() {
 
     const fetchIncident = async () => {
       try {
-        const res = await fetch(`/api/incidentes/${id}?secret=${process.env.NEXT_PUBLIC_API_SECRET || ""}`)
+        const res = await fetch(`/api/incidentes/${id}`)
         if (!res.ok) {
           if (res.status === 404) {
             setIncident(null)

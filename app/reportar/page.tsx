@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
+import Image from "next/image"
 import { ShieldCheck, Loader2, ArrowLeft, AlertTriangle, MapPin, Crosshair, Copy, Check, ExternalLink, Search, Navigation, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,8 +18,6 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import type { IncidentType, IncidentSeverity, ZkCitizenReport } from "@/lib/types"
-
-const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || ""
 
 // Mini-mapa con pin arrastrable — carga client-side only (Leaflet toca window)
 const LocationPickerMap = dynamic(
@@ -294,10 +293,7 @@ export default function ReportarPage() {
     try {
       const res = await fetch("/api/incidentes/zk-report", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-secret": API_SECRET,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
 
@@ -344,8 +340,8 @@ export default function ReportarPage() {
             Volver al mapa
           </a>
           <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-zinc-300">
-            <ShieldCheck className="h-4 w-4 text-cyan-400" />
-            ZNTINEL <span className="font-normal text-zinc-500">/ PORTAL CIUDADANO</span>
+            <Image src="/zntinel-logo-optimized.png" alt="Zntinel" width={105} height={64} className="h-10 w-auto object-contain" priority />
+            <span className="hidden font-normal text-zinc-500 sm:inline">/ PORTAL CIUDADANO</span>
           </div>
         </div>
       </header>

@@ -27,10 +27,12 @@
 
 import { randomUUID } from "crypto"
 import { CONFIG } from "@/lib/config"
+import { isNonReportIncident } from "@/lib/types"
 import { LlmAnalyzer } from "@/lib/agents/llm-analyzer"
 import { analyzePostHeuristically } from "@/lib/agents/heuristic-analyzer"
 import { containsTriggerHashtag, extractHashtags, TRIGGER_HASHTAG } from "@/lib/agents/hashtag"
 import { DEFAULT_PLACE, findPlaceInText, jitter } from "@/lib/agents/tucuman-gazetteer"
+import { getConfigNumber } from "@/lib/services/config-service"
 import type { GeminiAnalysis, MentionOutcome, SocialPlatform, SocialPost } from "@/lib/agents/types"
 
 const TYPE_MAP: Record<string, string> = {
@@ -122,7 +124,9 @@ export async function ingestSocialPost(post: SocialPost, { dryRun = false }: Ing
     ? { analysis: post.preAnalysis, analyzer: "api" as const }
     : await analyze(post)
 
-  if (!analysis.isIncident || analysis.confidence < CONFIG.AI.MIN_CONFIDENCE_TO_PERSIST) {
+  // Umbral configurable desde /admin (config_sistema.confidence_threshold)
+  const minConfidence = await getConfigNumber("confidence_threshold", CONFIG.AI.MIN_CONFIDENCE_TO_PERSIST)
+  if (!analysis.isIncident || analysis.confidence < minConfidence) {
     return { ...base, status: "rejected", analyzer, analysis, reason: analysis.reasoning }
   }
 
@@ -144,14 +148,13 @@ export async function ingestSocialPost(post: SocialPost, { dryRun = false }: Ing
   // ── Corroboración: ya hay un incidente activo en ese lugar ────────────────
   const { data: existing, error: findError } = await supabase
     .from("incidentes")
-    .select("id, severidad, personas_afectadas, fuente_detalles")
+    .select("id, fuente, severidad, personas_afectadas, fuente_detalles")
     .eq("ubicacion", location.nombre)
     .eq("estado", "activo")
-    .limit(1)
   if (findError) throw new Error(`Failed to check existing incident: ${findError.message}`)
 
-  if (existing?.length) {
-    const current = existing[0]
+  const current = existing?.find(i => !isNonReportIncident(i))
+  if (current) {
     const details = (current.fuente_detalles ?? {}) as Record<string, unknown>
     const aiAnalysis = (details.ai_analysis ?? {}) as Record<string, unknown>
     const { error: updateError } = await supabase
@@ -176,12 +179,12 @@ export async function ingestSocialPost(post: SocialPost, { dryRun = false }: Ing
     return { ...base, status: "corroborated", analyzer, analysis, incidentId: current.id, location: location.nombre }
   }
 
-  const { count, error: countError } = await supabase
+  const { data: active, error: countError } = await supabase
     .from("incidentes")
-    .select("*", { count: "exact", head: true })
+    .select("fuente, fuente_detalles")
     .eq("estado", "activo")
   if (countError) throw new Error(`Failed to count active incidents: ${countError.message}`)
-  if ((count ?? 0) >= CONFIG.INCIDENTS.MAX_ACTIVE) {
+  if ((active?.filter(i => !isNonReportIncident(i)).length ?? 0) >= CONFIG.INCIDENTS.MAX_ACTIVE) {
     return { ...base, status: "skipped", analyzer, analysis, location: location.nombre, reason: `Límite de ${CONFIG.INCIDENTS.MAX_ACTIVE} incidentes activos alcanzado` }
   }
 

@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase"
-import { STATIC_RESPONSE_TIME_MIN } from "@/lib/mock-data"
 import { apiSuccess, apiError } from "@/lib/services/api-response"
+import { isNonReportIncident } from "@/lib/types"
 
 export async function GET() {
   try {
@@ -17,9 +17,9 @@ export async function GET() {
     if (allResult.error) return apiError(allResult.error.message)
     if (recursosResult.error) return apiError(recursosResult.error.message)
 
-    const active = activeResult.data || []
-    const incidents24h = (allResult.data || []).filter(i => i.created_at >= since24h)
-    const incidents48h = (allResult.data || []).filter(i => i.created_at >= since48h && i.created_at < since24h)
+    const active = (activeResult.data || []).filter(i => !isNonReportIncident(i))
+    const incidents24h = (allResult.data || []).filter(i => !isNonReportIncident(i) && i.created_at >= since24h)
+    const incidents48h = (allResult.data || []).filter(i => !isNonReportIncident(i) && i.created_at >= since48h && i.created_at < since24h)
     const allResources = recursosResult.data || []
 
     const citizenCount = active.filter(i => i.fuente === "citizen").length
@@ -42,7 +42,7 @@ export async function GET() {
     else if (highCount === 1 || active.length >= 3) { riskLevel = "MEDIUM"; riskProgress = 50 }
     else if (active.length > 0) { riskLevel = "LOW-MEDIUM"; riskProgress = 35 }
 
-    const avgResponseMin: number = STATIC_RESPONSE_TIME_MIN
+    const avgResponseMin: number | null = null
 
     const incidentsTrend = incidents24h.length > 0 && incidents48h.length > 0
       ? Math.round(((incidents24h.length - incidents48h.length) / incidents48h.length) * 100)

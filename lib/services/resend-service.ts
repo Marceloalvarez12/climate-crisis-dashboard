@@ -57,14 +57,19 @@ export async function sendMail(to: string, subject: string, html: string): Promi
  */
 export function buildReportConfirmationEmail(opts: {
   incidentId: string
-  txHash: string
-  auditUrl: string
+  txHash?: string
+  onChain: boolean
+  auditUrl?: string
   trackingUrl: string
   tipo: string
   severidad: string
   ubicacion: string
 }): { subject: string; html: string } {
   const subject = `Zntinel — Reporte ZK registrado (${opts.incidentId.slice(0, 8)})`
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]!)
+  const ubicacion = escapeHtml(opts.ubicacion)
 
   const html = `
 <!DOCTYPE html>
@@ -74,32 +79,31 @@ export function buildReportConfirmationEmail(opts: {
     <div style="text-align:center;padding-bottom:24px;border-bottom:1px solid #1f2937;">
       <p style="margin:0;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">Zntinel · Climate Crisis Center</p>
       <h1 style="margin:8px 0 0;font-size:22px;color:#f9fafb;">Reporte ZK registrado</h1>
-      <p style="margin:6px 0 0;font-size:13px;color:#34d399;">Tu proof fue verificado y sellado</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#34d399;">${opts.onChain ? "Prueba verificada y registrada en Stellar" : "Prueba verificada localmente; sin transacción en Stellar"}</p>
     </div>
 
     <div style="padding:24px 0;">
       <p style="margin:0 0 4px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#818cf8;">Tracking ID</p>
       <p style="margin:0 0 20px;font-family:monospace;font-size:13px;color:#e5e7eb;word-break:break-all;background:#111827;border:1px solid #374151;border-radius:8px;padding:12px;">${opts.incidentId}</p>
 
-      <p style="margin:0 0 4px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#818cf8;">Proof hash (Stellar)</p>
-      <p style="margin:0 0 20px;font-family:monospace;font-size:12px;color:#a5b4fc;word-break:break-all;background:#111827;border:1px solid #374151;border-radius:8px;padding:12px;">${opts.txHash}</p>
+      ${opts.txHash ? `<p style="margin:0 0 4px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#818cf8;">Transacción Stellar</p><p style="margin:0 0 20px;font-family:monospace;font-size:12px;color:#a5b4fc;word-break:break-all;background:#111827;border:1px solid #374151;border-radius:8px;padding:12px;">${escapeHtml(opts.txHash)}</p>` : ""}
 
       <table style="width:100%;font-size:12px;color:#9ca3af;margin-bottom:20px;">
         <tr><td style="padding:4px 0;">Tipo</td><td style="text-align:right;color:#e5e7eb;text-transform:capitalize;">${opts.tipo}</td></tr>
         <tr><td style="padding:4px 0;">Severidad</td><td style="text-align:right;color:#e5e7eb;text-transform:capitalize;">${opts.severidad}</td></tr>
-        <tr><td style="padding:4px 0;">Ubicación</td><td style="text-align:right;color:#e5e7eb;">${opts.ubicacion}</td></tr>
+        <tr><td style="padding:4px 0;">Ubicación</td><td style="text-align:right;color:#e5e7eb;">${ubicacion}</td></tr>
       </table>
 
-      <a href="${opts.auditUrl}" style="display:block;background:#059669;color:#ffffff;text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-bottom:10px;">Verificar estado en portal Braga</a>
+      ${opts.onChain && opts.auditUrl ? `<a href="${escapeHtml(opts.auditUrl)}" style="display:block;background:#059669;color:#ffffff;text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-bottom:10px;">Verificar transacción en Stellar</a>` : ""}
       <a href="${opts.trackingUrl}" style="display:block;background:#1f2937;color:#e5e7eb;text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">Seguimiento en vivo</a>
     </div>
 
     <div style="border-top:1px solid #1f2937;padding-top:16px;">
       <p style="margin:0;font-size:10px;color:#6b7280;line-height:1.6;">
-        Guardá este mail. Con el Tracking ID o el Proof hash podés auditar tu reporte
-        en cualquier momento en el portal de auditoría de Zntinel — sin necesidad de
-        cuenta ni login. La ubicación exacta nunca fue revelada: solo se demostró
-        criptográficamente (Groth16) que estás dentro de la zona de riesgo oficial.
+        Guardá este mail. Con el Tracking ID podés consultar tu reporte
+        sin cuenta ni login. La ubicación exacta se almacena para uso operativo;
+        el mapa público solo muestra una zona aproximada. La prueba Groth16
+        demuestra pertenencia a la zona, no confirma que la emergencia ocurrió.
       </p>
     </div>
   </div>

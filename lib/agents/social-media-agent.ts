@@ -4,7 +4,7 @@
  * Agente principal de monitoreo de redes sociales.
  *
  * Orquesta el ciclo completo:
- *   1. Recolecta posts de los conectores disponibles (X, Facebook, Instagram o Mock)
+ *   1. Recolecta posts de los conectores sociales configurados (X, Facebook, Instagram)
  *   2. Cada post pasa por el pipeline de ingesta (`ingestSocialPost`):
  *      sólo los que contienen el hashtag disparador (#AlertaTucuman) se analizan
  *      con IA y, si describen una emergencia, se persisten como incidente
@@ -15,8 +15,6 @@
  *     ├── XConnector          (requiere X_BEARER_TOKEN)
  *     ├── FacebookConnector   (requiere FACEBOOK_ACCESS_TOKEN)
  *     ├── InstagramConnector  (requiere INSTAGRAM_ACCESS_TOKEN)
- *     ├── UsgsConnector       (siempre activo — API pública)
- *     ├── EonetConnector      (siempre activo — API pública)
  *     └── ingestSocialPost    (filtro de hashtag → OpenRouter/Gemini/reglas → Supabase)
  */
 
@@ -24,8 +22,6 @@ import { randomUUID } from "crypto"
 import { XConnector }        from "./connectors/x-connector"
 import { FacebookConnector } from "./connectors/facebook-connector"
 import { InstagramConnector } from "./connectors/instagram-connector"
-import { UsgsConnector }     from "./connectors/usgs-connector"
-import { EonetConnector }    from "./connectors/eonet-connector"
 import { TRIGGER_HASHTAG }   from "./hashtag"
 import { CONFIG }            from "@/lib/config"
 import { ingestSocialPost }  from "@/lib/services/social-incident-service"
@@ -58,13 +54,10 @@ export class SocialMediaAgent {
       new XConnector(),
       new FacebookConnector(),
       new InstagramConnector(),
-      // APIs públicas reales — sin credenciales, siempre activas
-      new UsgsConnector(),
-      new EonetConnector(),
     ]
   }
 
-  /** Conectores configurados: USGS y EONET siempre lo están; los sociales sólo con credenciales */
+  /** Sólo conectores sociales configurados; las fuentes USGS/EONET no crean incidentes automáticamente */
   private activeConnectors(): SocialConnector[] {
     return this.realConnectors.filter((c) => c.isConfigured())
   }
@@ -90,10 +83,12 @@ export class SocialMediaAgent {
       }
     }
 
-    const platform = (connectors[0]?.platform ?? "usgs") as SocialPlatform
+    const platform = (connectors[0]?.platform ?? "facebook") as SocialPlatform
 
     if (allPosts.length === 0) {
-      return this.buildResult(scanId, startedAt, platform, 0, [], "No se obtuvieron posts de ningún conector")
+      return this.buildResult(scanId, startedAt, platform, 0, [], connectors.length === 0
+        ? "Sin conectores sociales activos: los incidentes se crean al recibir reportes ciudadanos o menciones en el webhook"
+        : "No se obtuvieron posts de los conectores sociales")
     }
 
     // 2. Pipeline de ingesta por post (filtro de hashtag + IA + persistencia)

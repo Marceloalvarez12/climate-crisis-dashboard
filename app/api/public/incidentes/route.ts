@@ -1,4 +1,5 @@
 import { apiSuccess, apiError } from "@/lib/services/api-response"
+import { isNonReportIncident } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -19,17 +20,17 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("incidentes")
-      .select("id, tipo, severidad, ubicacion, latitud, longitud, personas_afectadas, fuente, estado, created_at")
+      .select("id, tipo, severidad, ubicacion, latitud, longitud, personas_afectadas, fuente, fuente_detalles, estado, created_at")
       .eq("estado", "activo")
       .order("created_at", { ascending: false })
-      .limit(50)
+      .limit(1000)
 
     if (error) {
       console.error("[Public incidents] Query failed:", error)
       return apiError("No se pudieron cargar los incidentes", 503)
     }
 
-    const incidents = (data ?? []).map((i) => ({
+    const incidents = (data ?? []).filter(i => !isNonReportIncident(i)).slice(0, 50).map((i) => ({
       id:                 i.id,
       tipo:               i.tipo,
       severidad:          i.severidad,

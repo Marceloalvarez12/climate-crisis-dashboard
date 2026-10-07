@@ -4,8 +4,8 @@ import { Toaster } from 'sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Climate Crisis Center - AI Agent',
-  description: 'Professional climate crisis management dashboard with real-time AI Agent monitoring',
+  title: 'Zntinel · Centro de crisis de Tucumán',
+  description: 'Mapa ciudadano y centro de control de emergencias en Tucumán',
   generator: 'v0.app',
   icons: {
     icon: [

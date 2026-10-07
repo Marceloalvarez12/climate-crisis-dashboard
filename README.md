@@ -20,7 +20,7 @@ Durante una catástrofe climática las líneas de emergencia colapsan, los repor
 
 ## 🚀 Demo principal
 
-La URL más importante para el hackathon es el dashboard con el panel de simulación:
+Para ver el dashboard operativo con herramientas de prueba **solo en desarrollo**:
 
 ```
 http://localhost:3000?dev=true
@@ -97,7 +97,7 @@ created → Supabase → Realtime → aparece en el mapa ("Pending Validation")
 
 - El hashtag es tolerante a mayúsculas y tildes (`#alertatucumán` también dispara) y se configura con `NEXT_PUBLIC_TRIGGER_HASHTAG`.
 - El tipo, severidad, ubicación y afectados **se extraen del texto del post**, no son aleatorios.
-- El agente periódico (`/api/agent`, cada 90 s) y el webhook usan el **mismo pipeline** (`lib/services/social-incident-service.ts`).
+- El webhook recibe reportes sociales reales y usa `lib/services/social-incident-service.ts`. `/api/agent` sólo escanea conectores sociales configurados cuando se invoca explícitamente; el dashboard ya no lanza escaneos ni crea incidentes al abrirse.
 - Sin `OPENROUTER_API_KEY` ni `GOOGLE_AI_API_KEY` funciona igual con el analizador por reglas (`lib/agents/heuristic-analyzer.ts`).
 
 **Webhook** (protegido por `x-api-secret`):
@@ -112,9 +112,9 @@ Campos: `platform` (`facebook|instagram|twitter|tiktok`), `author`, `text` oblig
 
 > Meta no permite buscar posts públicos por hashtag en Facebook, e Instagram sólo lo permite a cuentas Business con límites. Por eso la integración real recomendada es reenviar menciones a este webhook desde una herramienta externa (Zapier, Make, n8n o un scraper autorizado).
 
-**Fuentes reales sin clave:** el scan periódico (`POST /api/agent`) también consulta dos APIs públicas autoritativas — el **feed USGS** (sismos M3.5+ dentro de 800 km de Tucumán) y **NASA EONET** (eventos naturales abiertos: incendios, inundaciones, tormentas en Argentina). Estos eventos no pasan por el hashtag ni la IA: llevan análisis determinístico y se guardan como `fuente: "sensor"` (aparecen verificados en `/mapa`). Si además se configuran `X_BEARER_TOKEN` / tokens de Meta, los conectores sociales reales se activan automáticamente. Ya **no hay datos de prueba** en el pipeline del agente.
+**Origen de incidentes:** solamente reportes ciudadanos enviados a `/reportar` y posts recibidos por `/api/social/mention` con `#AlertaTucuman` (o conectores sociales explícitamente configurados e invocados). USGS y NASA EONET ya no son fuentes automáticas; los incidentes históricos generados por esos feeds se excluyen del mapa, la actividad y los KPI sin borrarse de Supabase. `/api/incidentes/respawn` responde 410. Los reportes reales no se marcan atendidos automáticamente a los 5 minutos ni se eliminan tras una hora.
 
-**Demo:** en `?dev=true` el panel de simulación tiene un compositor de posts (elegís Facebook/Instagram/X, escribís con o sin el hashtag y publicás) y "Start Social Feed Simulation" publica un post simulado cada 30 s con la mezcla: emergencias con hashtag, emergencias sin hashtag (ignoradas) y ruido off-topic (rechazado).
+**Demo local:** `?dev=true` está disponible solo con `npm run dev`; el feed simulado y el compositor no están disponibles en producción, y `/api/social/mention` rechaza `simulated: true` fuera de desarrollo.
 
 ### 2. Reporte ciudadano anónimo verificable (Stellar ZK)
 
@@ -139,8 +139,8 @@ Ciudadano entra a /reportar
 - La ubicación exacta se guarda en la base operativa; el mapa ciudadano muestra solo una zona aproximada (~1 km) y no publica la dirección del reporte.
 - Endpoints:
   - `POST /api/incidentes/zk-verify` — público, genera y verifica un proof sin persistir.
-  - `POST /api/incidentes/zk-report` — protegido, flujo completo con persistencia.
-  - `POST /api/incidentes/zk-report?dryRun=true` — flujo completo sin tocar la base de datos.
+  - `POST /api/incidentes/zk-report` — público, flujo completo con persistencia; requiere artefactos reales (`zk/build/zone_membership_js/zone_membership.wasm`, `zk/build/zone_membership_final.zkey`, `zk/build/verification_key.json`). Si faltan o la prueba no verifica, responde error y no crea incidente.
+  - `POST /api/incidentes/zk-report?dryRun=true` — solo desarrollo: verifica sin escribir en la base de datos. No genera una transacción si no está configurado Stellar.
 
 ### 3. Seguimiento ciudadano
 
@@ -194,7 +194,6 @@ NEXT_PUBLIC_TRIGGER_HASHTAG=#AlertaTucuman
 
 # Seguridad de API
 API_SECRET=clave-aleatoria-de-api
-NEXT_PUBLIC_API_SECRET=clave-aleatoria-de-api
 
 # Blockchain Arkiv
 ARKIV_PRIVATE_KEY=0x_tu_private_key_aqui
@@ -203,8 +202,8 @@ ARKIV_PRIVATE_KEY=0x_tu_private_key_aqui
 # El contrato verifier está desplegado en Stellar TESTNET:
 #   CCX7FMGEF627I74U37ABFYIYJYGXVHHULN5JC5VLXAOG2NU3LB5YUCGM
 # `verify_and_store` (no read-only) crea una TX real on-chain y persiste un AuditRecord.
-# Sin `STELLAR_SECRET_KEY` válida, el sistema cae a modo simulado (snarkjs local).
-STELLAR_SECRET_KEY=SCGSTV73HMPAFVB2TJ3YJ5M2QLK3RAEDUE2NGJUP3YGHAE3AEUWUBCIL
+# Sin `STELLAR_SECRET_KEY` válida, se verifica la prueba Groth16 localmente con snarkjs, pero no hay transacción on-chain ni txHash. Los artefactos del circuito son obligatorios.
+STELLAR_SECRET_KEY=tu-clave-privada-stellar
 ```
 
 > ⚠️ **Nunca subís `.env.local` a git.** El repositorio ya ignora archivos `.env*`.

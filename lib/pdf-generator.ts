@@ -805,7 +805,7 @@ export function generateGeneralReport(
     {
       title: "EFICIENCIA",
       lines: [
-        `Resp. promedio: ${analytics.avgResponseMin || 18} min`,
+        `Resp. promedio: ${analytics.avgResponseMin == null ? "Sin datos" : `${analytics.avgResponseMin} min`}`,
         `Despliegue: ${analytics.resourceProgress || 0}%`,
         `Total unidades: ${analytics.totalResources || 0}`,
       ]

@@ -202,7 +202,7 @@ function DispatchCard({ dispatch, onDispatch }: {
 
 export function DevPanel() {
   const searchParams = useSearchParams()
-  const isDev = searchParams.get("dev") === "true"
+  const isDev = process.env.NODE_ENV === "development" && searchParams.get("dev") === "true"
   const [isOpen, setIsOpen] = useState(true)
 
   const {

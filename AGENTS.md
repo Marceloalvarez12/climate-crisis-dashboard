@@ -16,7 +16,7 @@ npm run lint     # ESLint check
 
 ## Dev Mode
 
-Append `?dev=true` to enable the simulation control panel (bottom-left corner). It has a social post composer (Facebook/Instagram/X), injects citizen ZK reports, and toggles the simulated social feed (one post every 30s).
+In local development only, append `?dev=true` to enable the simulation control panel (bottom-left corner). It has a social post composer (Facebook/Instagram/X), injects citizen ZK reports, and toggles the simulated social feed. The panel is unavailable in production and simulated social mentions are rejected outside development.
 
 ## Social Hashtag Trigger
 
@@ -24,30 +24,42 @@ Social incidents are created ONLY from posts containing the trigger hashtag (`#A
 
 - Single pipeline: `lib/services/social-incident-service.ts` → `ingestSocialPost()` (hashtag filter → dedup by post id → LLM/heuristic analysis → gazetteer geocoding → corroborate or create).
 - Entry points: `POST /api/social/mention` (webhook, supports `?dryRun=true`) and `SocialMediaAgent.runScan()` (`POST /api/agent`).
-- Real feeds (no key needed): `UsgsConnector` (USGS M3.5+ earthquakes within 800 km) and `EonetConnector` (NASA EONET open events in Argentina bbox). Their posts are `trusted` — they skip the hashtag filter and LLM, carry a deterministic `preAnalysis`, and persist as `fuente: "sensor"`. Config in `CONFIG.EXTERNAL` (`lib/config.ts`).
+- `UsgsConnector` and `EonetConnector` are not active sources: incidents require an incoming citizen report or social mention. The dashboard no longer triggers agent scans. Historical USGS/EONET rows remain in Supabase but are excluded from incident reads and analytics with `isNonReportIncident`; do not delete them without approval. `/api/incidentes/respawn` returns 410. Real reports are not auto-resolved or expired by simulation maintenance.
 - Analyzer fallback chain: OpenRouter → Gemini → `lib/agents/heuristic-analyzer.ts` (rule-based, no key needed).
 - Isomorphic helpers (safe in client): `lib/agents/hashtag.ts`, `lib/agents/tucuman-gazetteer.ts`, `lib/social-feed-simulator.ts`.
 - Active social incidents show in the map's Active tab with a "Pending Validation" badge; posts dedup via `fuente_detalles.related_post_ids`.
-- Without `.env.local` only `dryRun` works (Supabase client throws at import; the service imports it lazily).
-- Quick check: `curl -X POST "localhost:3000/api/social/mention?dryRun=true" -H "Content-Type: application/json" -d '{"platform":"facebook","author":"x","text":"Incendio en Yerba Buena #AlertaTucuman"}'`
+- Without `.env.local`, Supabase-backed flows cannot be verified. `dryRun` for the social endpoint still requires an authenticated operator/admin session or `API_SECRET` in the server-to-server header; production rejects dry-runs.
+- Citizen ZK reports require real `zk/build/` wasm/zkey/verification_key.json artifacts. Missing artifacts or failed verification return an error, never a synthetic proof. The circuit declares coordinates private, but exact coordinates remain in operational DB fields; public map responses are approximate.
+- Quick check (with a staff session): `curl -X POST "localhost:3000/api/social/mention?dryRun=true" -H "Content-Type: application/json" -d '{"platform":"facebook","author":"x","text":"Incendio en Yerba Buena #AlertaTucuman"}'`
 
 ## Environment Variables (.env.local)
 
 Critical env vars (see `.env.local` for actual values used in this repo):
 
-- `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase client
-- `SUPABASE_SERVICE_ROLE_KEY` — Server-side Supabase (bypasses RLS)
+- `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase client + Auth
+- `SUPABASE_SERVICE_ROLE_KEY` — Server-side Supabase (bypasses RLS); required for admin user management
 - `GOOGLE_AI_API_KEY` — Gemini API for AI analysis
-- `API_SECRET` + `NEXT_PUBLIC_API_SECRET` — Protects `/api/*` routes via middleware
+- `API_SECRET` — Server-to-server auth for social/agent APIs only. Never set `NEXT_PUBLIC_API_SECRET` (old deployed value must be rotated if it was shared).
 - `ARKIV_PRIVATE_KEY` — Blockchain signing key (**never prefix with NEXT_PUBLIC_**)
 
 Arkiv dispatch endpoint falls back to simulated mode if `ARKIV_PRIVATE_KEY` is `'0xREEMPLAZAR_CON_TU_PRIVATE_KEY_AQUI'`.
 
+## Auth & User Management (Supabase Auth, shared project)
+
+- Staff sign-in at `/login` → `app/login/actions.ts` (Supabase `signInWithPassword`, then checks `public.perfiles.rol`/`status`).
+- Password recovery: `/recuperar` (request email) → `/auth/callback` (exchanges `code` for session) → `/restablecer` (new password). Requires Supabase Auth Site URL + Redirect URLs configured.
+- `/admin` is admin-only with a sidebar layout (`?section=`): **control** (agent kill switch → `config_sistema.agent_mode`, gates agent and social webhook; disabled if unavailable), **thresholds** (`auto_resolve_minutes` → auto-resolve cutoff, `confidence_threshold` → ingest minimum), **connections** (read-only configured flags, secrets must be managed in the hosting secrets manager), **users** (roles, suspend, reset password, create operator, assign resources), **resources** (full CRUD via `/api/recursos`). Components live in `components/admin/` (ported from the PMV branch).
+- Every admin action calls `registrar_auditoria` RPC via the **session** client (it uses `auth.uid()` — never via the service client).
+- `/api/recursos`: GET any active staff; PATCH dispatch fields (estado/incidente_id/cantidad_disponible) admin/operador only; PATCH `retired` and card edits plus POST/DELETE admin-only. Needs `supabase-migration-recursos-cantidad.sql` for the `cantidad`/`cantidad_disponible` columns (GET degrades gracefully without it).
+- `lib/services/config-service.ts` — `getSystemConfig`/`getConfigNumber`, tolerant reads of `config_sistema` with 10s cache. Agent/social ingest fail closed when `agent_mode` is absent or unavailable.
+- `lib/supabase-auth.ts` — `createAuthClient()` (SSR cookie client), `requireStaff(role)`, `auditAdmin()`.
+- `middleware.ts` enforces: public pages (`/login`, `/recuperar`, `/restablecer`, `/auth/callback`, `/mapa`, `/reportar`, `/seguimiento/*`, `/auditoria*`), protected pages need an active `perfiles` row, `/admin` needs `rol = "admin"`, non-GET APIs need `admin`/`operador`. Service APIs (`/api/agent`, `/api/social/mention`, `/api/incidentes/zk-report`) also accept `x-api-secret`.
+- DB schema comes from the `Zntinel-PMV` branch of `v0-climate-crisis-dashboard` (`supabase-setup.sql` + `supabase-rls-policies.sql`): `perfiles`, `config_sistema`, `auditoria_admin`, `asignaciones_recursos`.
+- **Required migration**: run `supabase-auth-hardening.sql` on the shared Supabase project — fixes the `handle_new_user` trigger so self-signups can't grant themselves roles via `raw_user_meta_data`; new profiles start as `operador`/`suspendido` until an admin activates them. It also creates `replace_operator_resources`, a transaction-atomic admin-only replacement with audit.
+
 ## API Security
 
-All `/api/*` routes (except `PUBLIC_PATHS` in `middleware.ts`: `/api/analytics`, `/api/incidentes/arkiv-verify`, `/api/layers/*`, `/api/public/*`, health/version) require either:
-- Header: `x-api-secret: <API_SECRET>`
-- Query param: `?secret=<API_SECRET>`
+All `/api/*` routes (except `PUBLIC_APIS` in `middleware.ts`: `/api/analytics`, `/api/incidentes/arkiv-verify`, `/api/incidentes/zk-report`, `/api/incidentes/zk-verify`, `/api/layers/*`, `/api/public/*`, `/api/stellar`, GET `/api/incidentes/{uuid}`, health/version) require a Supabase session — service APIs (`/api/agent`, `/api/social/mention`) additionally accept `x-api-secret: <API_SECRET>` for server-to-server calls. `zk-report` is intentionally public (anonymous citizen reports; Zod validation + rate limit).
 
 Rate limiting is applied via `lib/rate-limit.ts`.
 
@@ -68,7 +80,7 @@ Rate limiting is applied via `lib/rate-limit.ts`.
 ## Framework Quirks
 
 - **Tailwind CSS v4** — Uses CSS-based config in `app/globals.css`, no `tailwind.config.js`. PostCSS plugin is `@tailwindcss/postcss`.
-- **Next.js build** — `next.config.mjs` has `typescript.ignoreBuildErrors: true`. TypeScript strict mode is enabled but not enforced at build time.
+- **Next.js build** — TypeScript errors fail the build. Production build needs Supabase environment variables at build time because several API routes load the service client eagerly.
 - **shadcn/ui** — Components use `components.json` schema. Aliases: `@/components/ui`, `@/lib/utils`, `@/hooks`.
 - **Arkiv SDK** — Uses `@arkiv-network/sdk` with `braga` chain and `http()` transport for wallet client.
 
@@ -100,14 +112,16 @@ Rate limiting is applied via `lib/rate-limit.ts`.
 ## Known Issues (To Be Addressed)
 
 ### Security
-- **API Secret exposed to client**: `NEXT_PUBLIC_API_SECRET` is bundled in client-side JavaScript. In production, use Supabase RLS or JWT-based auth instead of shared secrets.
-- **Credentials in `.env.local`**: Contains real Supabase service role key, Gemini API key, and Arkiv private key. Ensure `.env.local` is never committed to git.
+- Rotate `API_SECRET` if it was ever deployed as `NEXT_PUBLIC_API_SECRET`; removing it from the source does not invalidate already published bundles.
+- Public ZK reporting has an in-memory limit of 3 requests per 10 minutes per IP; use distributed rate limiting and origin-aware abuse controls before production.
+- Admin actions that change Supabase Auth and `perfiles` span two services and cannot be made atomic by a database transaction alone. Monitor and reconcile partial failures.
+- Never commit `.env.local` or secrets; keep service role, Gemini and blockchain keys server-side.
 
 ### Performance
 - **Sequential queries per mention**: `ingestSocialPost()` runs up to 4 sequential Supabase queries per hashtag post (dedup, location, count, insert). Consider an RPC if volume grows.
 
-### Pre-existing type errors
-- `npx tsc --noEmit` reports 2 errors in `components/dashboard/crisis-map/map-inner.tsx` (`eventHandlers` on `MapContainer`). Build ignores TS errors.
+### Lint warnings
+- `npm run lint` has non-blocking pre-existing warnings in dashboard/legacy code. `npx tsc --noEmit` and lint should run before publishing.
 
 ### Architecture
 - **Middleware deprecation**: Next.js 16 marks `middleware.ts` as deprecated in favor of "proxy". Current implementation works but should be migrated.

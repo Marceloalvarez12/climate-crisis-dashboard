@@ -6,11 +6,7 @@ import { z } from "zod"
 const ZkVerifySchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
-  zoneHash: z.number().int().default(12345),
-  minLat: z.number().default(-27.0),
-  maxLat: z.number().default(-26.5),
-  minLng: z.number().default(-65.5),
-  maxLng: z.number().default(-65.0),
+
 })
 
 export async function POST(request: NextRequest): Promise<Response> {
@@ -22,15 +18,18 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     const params = parsed.data
+    if (params.lat < -27 || params.lat > -26.5 || params.lng < -65.5 || params.lng > -65) {
+      return apiValidationError("La ubicación está fuera de la zona habilitada")
+    }
 
-    const { proof, publicSignals, input } = await ZkService.generateProof({
+    const { proof, publicSignals } = await ZkService.generateProof({
       lat: params.lat,
       lng: params.lng,
-      zoneHash: params.zoneHash,
-      minLat: params.minLat,
-      maxLat: params.maxLat,
-      minLng: params.minLng,
-      maxLng: params.maxLng,
+      zoneHash: 12345,
+      minLat: -27,
+      maxLat: -26.5,
+      minLng: -65.5,
+      maxLng: -65,
     })
 
     const valid = await ZkService.verifyProofLocal(proof, publicSignals)
@@ -40,7 +39,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       valid,
       proof,
       publicSignals,
-      input,
       contractArgs: {
         proof: JSON.parse(proofArg),
         pubSignals: JSON.parse(pubSignalsArg),
@@ -49,6 +47,6 @@ export async function POST(request: NextRequest): Promise<Response> {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "ZK verify failed"
     console.error("[ZK Verify] Error:", message)
-    return apiError(message, 500)
+    return apiError(message === "ZK_ARTIFACTS_UNAVAILABLE" ? "Verificación de ubicación no disponible" : "No se pudo verificar la ubicación", 503)
   }
 }

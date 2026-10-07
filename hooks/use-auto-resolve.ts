@@ -39,8 +39,7 @@ export function useAutoResolve({
   useEffect(() => { onResourcesResetRef.current = onResourcesReset }, [onResourcesReset])
 
   const check = useCallback(async () => {
-    const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET ?? ""
-    const headers: Record<string, string> = API_SECRET ? { "x-api-secret": API_SECRET } : {}
+    const headers: Record<string, string> = {}
 
     // ── 1. Auto-resolve incidentes ──────────────────────────────────────────
     try {

@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
+import Image from "next/image"
 import useSWR from "swr"
-import { Megaphone, RefreshCw, ShieldCheck, Loader2, AlertTriangle, MapPin, ArrowUpRight, Search, X } from "lucide-react"
+import { Megaphone, RefreshCw, Loader2, AlertTriangle, MapPin, ArrowUpRight, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Incident } from "@/lib/types"
 
@@ -120,7 +121,7 @@ export default function PublicMapPage() {
       {/* Header público */}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 bg-[#0d1014] px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <ShieldCheck className="h-6 w-6 shrink-0 text-cyan-400" />
+          <Image src="/zntinel-logo-optimized.png" alt="Zntinel" width={105} height={64} className="h-11 w-auto shrink-0 object-contain" priority />
           <div className="min-w-0">
             <h1 className="truncate text-sm font-semibold text-white sm:text-base">Mapa ciudadano · Tucumán</h1>
             <p className="hidden text-xs text-zinc-400 sm:block">Emergencias reportadas en tiempo real</p>

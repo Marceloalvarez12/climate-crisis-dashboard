@@ -3,6 +3,7 @@ import { randomUUID } from "crypto"
 import { ingestSocialPost } from "@/lib/services/social-incident-service"
 import { LlmAnalyzer } from "@/lib/agents/llm-analyzer"
 import { TRIGGER_HASHTAG } from "@/lib/agents/hashtag"
+import { getSystemConfig } from "@/lib/services/config-service"
 import { apiSuccess, apiError, apiValidationError } from "@/lib/services/api-response"
 import { SocialMentionSchema } from "@/lib/validation"
 
@@ -22,7 +23,15 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) return apiValidationError(parsed.error.flatten())
 
     const m = parsed.data
+    if (m.simulated && process.env.NODE_ENV !== "development") {
+      return apiError("Los reportes simulados están deshabilitados", 403)
+    }
     const dryRun = request.nextUrl.searchParams.get("dryRun") === "true"
+    if (dryRun && process.env.NODE_ENV !== "development") return apiError("No disponible", 403)
+    if (!dryRun) {
+      const mode = await getSystemConfig<{ autonomous?: boolean }>("agent_mode")
+      if (mode?.autonomous !== true) return apiError("Ingesta deshabilitada o configuración no disponible", 503)
+    }
 
     const outcome = await ingestSocialPost(
       {
@@ -44,7 +53,7 @@ export async function POST(request: NextRequest) {
     return apiSuccess({ ...outcome, dryRun })
   } catch (err) {
     console.error("[API/social/mention]", err)
-    return apiError(err instanceof Error ? err.message : String(err))
+    return apiError("No se pudo procesar la mención", 500)
   }
 }
 

@@ -18,21 +18,21 @@ function lazyCleanup() {
   }
 }
 
-export function checkRateLimit(identifier: string): { allowed: boolean; resetAt: number } {
+export function checkRateLimit(identifier: string, maxRequests = MAX_REQUESTS_PER_WINDOW, windowMs = RATE_LIMIT_WINDOW_MS): { allowed: boolean; resetAt: number } {
   lazyCleanup()
 
   const now = Date.now()
   const existing = requestCounts.get(identifier)
 
   if (!existing || now > existing.resetAt) {
-    const resetAt = now + RATE_LIMIT_WINDOW_MS
+    const resetAt = now + windowMs
     requestCounts.set(identifier, { count: 1, resetAt })
     return { allowed: true, resetAt }
   }
 
   existing.count += 1
 
-  if (existing.count > MAX_REQUESTS_PER_WINDOW) {
+  if (existing.count > maxRequests) {
     return { allowed: false, resetAt: existing.resetAt }
   }
 

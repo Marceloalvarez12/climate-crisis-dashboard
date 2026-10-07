@@ -339,11 +339,10 @@ export class StellarService {
 
       const valid = await ZkService.verifyProofLocal(zkProof, input.pubSignals).catch((err) => {
         // If the local verification key artifact is missing from the
-        // deployment, the proof is shape-valid and the on-chain verifier
-        // would accept it — treat the audit as successful so the demo
-        // still produces a real-looking audit entry end-to-end.
+        // deployment, the proof cannot be authenticated; reject it.
+        // Do not label a shape-compatible value as verified.
         if (err instanceof Error && err.message.includes("verification key not found")) {
-          return true
+          return false
         }
         throw err
       })

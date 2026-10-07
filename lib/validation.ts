@@ -21,8 +21,20 @@ export const IncidentPatchSchema = z.object({
 
 export const ResourcePatchSchema = z.object({
   id: z.string().min(1),
-  estado: z.enum(["available", "dispatched", "busy"]).optional(),
+  estado: z.enum(["available", "dispatched", "busy", "retired"]).optional(),
   incidente_id: z.string().nullable().optional(),
+  nombre: z.string().min(1).max(120).optional(),
+  tipo: z.enum(["ambulance", "firefighter", "helicopter", "boat", "shelter", "medical", "police"]).optional(),
+  cantidad: z.number().int().min(1).optional(),
+  cantidad_disponible: z.number().int().min(0).optional(),
+  ubicacion: z.string().min(1).max(200).optional(),
+})
+
+export const ResourceCreateSchema = z.object({
+  nombre: z.string().min(1, "El nombre es requerido").max(120),
+  tipo: z.enum(["ambulance", "firefighter", "helicopter", "boat", "shelter", "medical", "police"]),
+  cantidad: z.number().int().min(1, "La cantidad debe ser al menos 1").max(10000),
+  ubicacion: z.string().min(1, "La ubicación es requerida").max(200),
 })
 
 export const SocialMentionSchema = z.object({

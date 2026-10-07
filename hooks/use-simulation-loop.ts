@@ -12,7 +12,6 @@ import { fetchRecursos, patchRecurso, patchIncidente, createZkCitizenReport, pos
 import { buildSimulatedPost, type SimulatedPostPayload } from "@/lib/social-feed-simulator"
 import type { MentionOutcome } from "@/lib/agents/types"
 
-const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || ""
 const MAX_ACTIVE_SIMULATED_INCIDENTS = 5
 const AUTO_RESOLVE_UNATTENDED_MS = 120_000
 
@@ -148,9 +147,7 @@ export function useSimulationLoop() {
 
   const activeCount = useCallback(async () => {
     try {
-      const res = await fetch("/api/incidentes?estado=activo", {
-        headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
-      })
+      const res = await fetch("/api/incidentes?estado=activo")
       const data = await res.json()
       return Array.isArray(data) ? data.length : 0
     } catch {
@@ -160,16 +157,14 @@ export function useSimulationLoop() {
 
   const cleanupSimulatedIncidents = useCallback(async () => {
     try {
-      const res = await fetch("/api/incidentes?estado=activo", {
-        headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
-      })
+      const res = await fetch("/api/incidentes?estado=activo")
       const data = await res.json()
       const simulated = (Array.isArray(data) ? data : []).filter((i: any) => i.fuente_detalles?.simulated)
       await Promise.all(
         simulated.map((i: any) =>
           fetch("/api/incidentes", {
             method: "DELETE",
-            headers: API_SECRET ? { "x-api-secret": API_SECRET, "Content-Type": "application/json" } : { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: i.id }),
           })
         )
@@ -237,17 +232,13 @@ export function useSimulationLoop() {
 
           // 2. Incidente → atendido (Firma on-chain)
           try {
-            const apiSecret = process.env.NEXT_PUBLIC_API_SECRET || ""
-            const incidentes = await fetch("/api/incidentes?estado=activo", {
-              headers: apiSecret ? { "x-api-secret": apiSecret } : {},
-            }).then((res) => res.json())
+            const incidentes = await fetch("/api/incidentes?estado=activo").then((res) => res.json())
             const incident = Array.isArray(incidentes) ? incidentes.find((i: any) => i.id === incidentId) : null
             if (incident) {
               const response = await fetch("/api/incidentes/arkiv-dispatch", {
                 method: "POST",
                 headers: { 
                   "Content-Type": "application/json",
-                  ...(apiSecret ? { "x-api-secret": apiSecret } : {}),
                 },
                 body: JSON.stringify({
                   id: incidentId,

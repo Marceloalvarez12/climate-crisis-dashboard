@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useSWRConfig } from "swr"
-import { CheckCircle2, Sparkles, Loader2, Hash } from "lucide-react"
+import { CheckCircle2, Hash } from "lucide-react"
+import useSWR from "swr"
 import { cn } from "@/lib/utils"
 import { dispatchResourceWithLifecycle } from "@/hooks/use-resource-lifecycle"
 import { useAutoResolve } from "@/hooks/use-auto-resolve"
@@ -13,8 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
 import type { ActivityItem, SatelliteValidation } from "./ai-activity-log/types"
-import type { AgentScanResult, MentionOutcome } from "@/lib/agents/types"
-import { initialActivities, backgroundMessages } from "./ai-activity-log/data"
+import type { DbIncident } from "@/lib/types"
 import { ActivityIcon, activityIconColor, SeverityBadge } from "./ai-activity-log/activity-helpers"
 import { ReasoningPanel, ConfidenceBadge } from "./ai-activity-log/reasoning-panel"
 import { SatelliteModal } from "./ai-activity-log/satellite-modal"
@@ -32,45 +32,27 @@ function makeActivity(
   return { ...template, id: `${Date.now()}-${Math.random()}`, timestamp: new Date(), isNew: true, ...extra }
 }
 
-const PLATFORM_NAMES: Record<string, string> = {
-  facebook: "Facebook", instagram: "Instagram", twitter: "X", tiktok: "TikTok", mock: "Simulated feed",
-}
-
-/** Convierte una mención que disparó (o corroboró) un incidente en una ActivityItem accionable */
-function mentionToActivity(outcome: MentionOutcome): Omit<ActivityItem, "id" | "timestamp"> {
-  const analysis = outcome.analysis!
-  const network  = PLATFORM_NAMES[outcome.platform] ?? outcome.platform
-  const isNew    = outcome.status === "created"
-
+function incidentToActivity(incident: DbIncident): ActivityItem {
+  const details = incident.fuente_detalles ?? {}
+  const analysis = details.ai_analysis as Record<string, unknown> | undefined
+  const social = incident.fuente === "social"
   return {
-    type:       analysis.type === "none" ? "monitoring" : "alert",
-    message:    isNew
-      ? `${analysis.locationName}: ${analysis.summary}`
-      : `${analysis.locationName}: new ${outcome.hashtag} report corroborates the active incident`,
-    actionable: isNew && analysis.confidence >= 60 && analysis.isIncident,
-    location:   analysis.locationName,
-    severity:   analysis.severity as ActivityItem["severity"],
-    confidence: analysis.confidence,
-    arkivKey:   analysis.arkivKey,
-    incidentId: outcome.incidentId,
-    sourcePost: { platform: network, author: outcome.author, hashtag: outcome.hashtag },
-    reasoning: [
-      {
-        step:    1,
-        thought: `Post by ${outcome.author} on ${network} contains the trigger hashtag ${outcome.hashtag}`,
-        action:  `Hashtag filter → ${outcome.analyzer === "llm" ? "LLM analysis (OpenRouter / Gemini)" : "Rule-based analysis (no LLM key configured)"}`,
-      },
-      {
-        step:    2,
-        thought: analysis.reasoning,
-      },
-      ...(analysis.suggestedActions.length > 0 ? [{
-        step:    3,
-        thought: "Actions recommended by the AI system:",
-        action:  analysis.suggestedActions.join(" · "),
-        result:  `AI Confidence: ${analysis.confidence}% · ~${analysis.affectedPeopleEst} people at risk`,
-      }] : []),
-    ],
+    id: incident.id,
+    timestamp: new Date(incident.created_at),
+    type: "alert",
+    message: social
+      ? `${incident.ubicacion}: ${String(analysis?.summary || details.content || "Reporte de redes sociales recibido")}`
+      : `${incident.ubicacion}: ${incident.fuente === "citizen" ? "reporte ciudadano recibido" : "evento recibido desde una fuente conectada"}`,
+    actionable: true,
+    location: incident.ubicacion,
+    severity: incident.severidad as ActivityItem["severity"],
+    incidentId: incident.id,
+    confidence: typeof analysis?.confidence === "number" ? analysis.confidence : undefined,
+    sourcePost: social ? {
+      platform: String(details.platform || "Red social"),
+      author: String(details.username || "Usuario"),
+      hashtag: String(details.hashtag || TRIGGER_HASHTAG),
+    } : undefined,
   }
 }
 
@@ -78,23 +60,17 @@ function mentionToActivity(outcome: MentionOutcome): Omit<ActivityItem, "id" | "
 // Componente principal
 // ---------------------------------------------------------------------------
 
-/** Tiempo en ms entre escaneos automáticos de Gemini */
-const GEMINI_SCAN_INTERVAL_MS = 90_000  // 90 segundos
-/** Delay del primer escaneo después de montar */
-const GEMINI_INITIAL_DELAY_MS = 8_000   // 8 segundos
-
 export function AIActivityLog() {
-  const [activities,          setActivities]         = useState<ActivityItem[]>(initialActivities)
+  const [activities,          setActivities]         = useState<ActivityItem[]>([])
+  const { data: activeIncidents } = useSWR<DbIncident[]>("/api/incidentes?estado=activo", fetcher, { refreshInterval: 5000 })
   const [confirmDialog,       setConfirmDialog]       = useState<{ open: boolean; type: "deploy" | "notify"; activity: ActivityItem | null }>({ open: false, type: "deploy", activity: null })
   const [processedAlerts,     setProcessedAlerts]     = useState<Set<string>>(new Set())
   const [expandedReasoning,   setExpandedReasoning]   = useState<Set<string>>(new Set())
   const [validatingSatellite, setValidatingSatellite] = useState<string | null>(null)
   const [satelliteModal,      setSatelliteModal]      = useState<SatelliteValidation | null>(null)
-  const [isAgentScanning,     setIsAgentScanning]     = useState(false)
 
   const scrollRef          = useRef<HTMLDivElement>(null)
-  const messageIndexRef    = useRef(0)
-  const agentScanningRef   = useRef(false)  // evita scans simultáneos
+  const seenIncidentsRef   = useRef<Set<string>>(new Set())
 
   const addActivity = useCallback((template: Omit<ActivityItem, "id" | "timestamp">) => {
     setActivities((prev) => [...prev.slice(-20), makeActivity(template)])
@@ -117,89 +93,13 @@ export function AIActivityLog() {
 
   const { mutate } = useSWRConfig()
 
-  // ── Loop de mensajes de fondo (monitoring, extraction, etc.) ─────────────
+  // ── Actividad de reportes reales ──────────────────────────────────────────
   useEffect(() => {
-    const interval = setInterval(() => {
-      // No mostrar mensajes de fondo mientras escanea (para que se lean mejor los resultados)
-      if (!agentScanningRef.current) {
-        const template = backgroundMessages[messageIndexRef.current % backgroundMessages.length]
-        addActivity(template)
-        messageIndexRef.current += 1
-      }
-    }, 8000)
-    return () => clearInterval(interval)
-  }, [addActivity])
-
-  // ── Ciclo de escaneo Gemini ───────────────────────────────────────────────
-  const runGeminiScan = useCallback(async () => {
-    if (agentScanningRef.current) return  // ya hay un scan en curso
-    agentScanningRef.current = true
-    setIsAgentScanning(true)
-
-    // 1. Mensaje de inicio
-    addActivity({ type: "extraction", message: `Scanning social media for ${TRIGGER_HASHTAG}...` })
-    await new Promise((r) => setTimeout(r, 800))
-    addActivity({ type: "monitoring", message: "Collecting posts: Facebook · Instagram · X (Twitter)..." })
-
-    try {
-      const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET ?? ""
-      const res    = await fetch("/api/agent", {
-        method:  "POST",
-        headers: API_SECRET ? { "x-api-secret": API_SECRET } : {},
-      })
-      const result = await res.json() as AgentScanResult & { error?: string }
-
-      if (!res.ok || result.error) {
-        addActivity({ type: "monitoring", message: `Scan error: ${result.error ?? res.statusText}` })
-        return
-      }
-
-      // 2. Resumen del filtro de hashtag
-      addActivity({
-        type:    "database",
-        message: `${result.postsCollected} posts collected · ${result.postsMatched} with ${result.hashtag} sent to AI analysis`,
-      })
-
-      // 3. Posts con hashtag que la IA descartó (no eran emergencias)
-      const rejected = result.outcomes.filter((o) => o.status === "rejected").length
-      if (rejected > 0) {
-        addActivity({ type: "reasoning", message: `${rejected} ${result.hashtag} post(s) discarded: not an emergency` })
-      }
-
-      // 4. Incidentes creados / corroborados como alertas accionables
-      const hits = result.outcomes.filter((o) => (o.status === "created" || o.status === "corroborated") && o.analysis)
-
-      if (hits.length === 0) {
-        addActivity({
-          type:    "complete",
-          message: `Scan complete: no new ${result.hashtag} emergencies detected.`,
-        })
-      } else {
-        mutate("/api/incidentes?estado=activo")
-        mutate("/api/analytics")
-        for (const outcome of hits) {
-          await new Promise((r) => setTimeout(r, 600)) // pequeño delay dramático entre alertas
-          addActivity(mentionToActivity(outcome))
-        }
-      }
-    } catch (err) {
-      addActivity({ type: "monitoring", message: "Connection error with the AI agent — retrying on next cycle" })
-      console.error("[AIActivityLog/Agent]", err)
-    } finally {
-      agentScanningRef.current = false
-      setIsAgentScanning(false)
-    }
-  }, [addActivity, mutate])
-
-  // Primer scan a los 8s, luego cada 90s
-  useEffect(() => {
-    const firstTimer = setTimeout(runGeminiScan, GEMINI_INITIAL_DELAY_MS)
-    const interval   = setInterval(runGeminiScan, GEMINI_SCAN_INTERVAL_MS)
-    return () => {
-      clearTimeout(firstTimer)
-      clearInterval(interval)
-    }
-  }, [runGeminiScan])
+    if (!activeIncidents) return
+    const incoming = activeIncidents.filter(incident => !seenIncidentsRef.current.has(incident.id))
+    for (const incident of incoming) seenIncidentsRef.current.add(incident.id)
+    if (incoming.length) setActivities(prev => [...prev, ...incoming.map(incidentToActivity)].slice(-20))
+  }, [activeIncidents])
 
   // ── Auto-scroll ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -277,12 +177,10 @@ export function AIActivityLog() {
 
         if (incidente) {
           try {
-            const apiSecret = process.env.NEXT_PUBLIC_API_SECRET || ""
             const response = await fetch("/api/incidentes/arkiv-dispatch", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                ...(apiSecret ? { "x-api-secret": apiSecret } : {}),
               },
               body: JSON.stringify({
                 id: incidente.id,
@@ -340,27 +238,15 @@ export function AIActivityLog() {
           <div className="h-2 w-2 rounded-full bg-success" />
           <div className="absolute inset-0 h-2 w-2 rounded-full bg-success animate-pulse-ring" />
         </div>
-        <h2 className="text-sm font-semibold text-foreground">Live AI Agent</h2>
+        <h2 className="text-sm font-semibold text-foreground">Reportes recibidos</h2>
 
         <div className="ml-auto flex items-center gap-1.5">
-          {isAgentScanning && (
-            <Badge variant="outline" className="text-[9px] h-5 px-1.5 border-purple-500/50 text-purple-400 bg-purple-500/10 gap-1">
-              <Loader2 className="h-2.5 w-2.5 animate-spin" />
-              Scanning
-            </Badge>
-          )}
-          {!isAgentScanning && (
-            <Badge variant="outline" className="text-[9px] h-5 px-1.5 border-purple-500/30 text-purple-400 gap-1">
-              <Sparkles className="h-2.5 w-2.5" />
-              AI
-            </Badge>
-          )}
           <Badge variant="outline" title="Trigger hashtag being monitored" className="text-[9px] h-5 px-1.5 border-sky-500/40 text-sky-300 gap-0.5 font-mono">
             <Hash className="h-2.5 w-2.5" />
             {TRIGGER_HASHTAG.replace(/^#/, "")}
           </Badge>
           <Badge variant="outline" className="text-[10px] border-success/50 text-success">
-            Active
+            En vivo
           </Badge>
         </div>
       </div>
@@ -369,6 +255,9 @@ export function AIActivityLog() {
       <div className="flex-1 min-h-0 overflow-hidden">
         <ScrollArea className="h-full px-2 py-2 custom-scrollbar" ref={scrollRef}>
           <div className="space-y-2">
+            {activities.length === 0 && (
+              <p className="px-2 py-6 text-center text-xs text-muted-foreground">A la espera de reportes ciudadanos o menciones recibidas.</p>
+            )}
             {activities.map((activity) => {
               const isProcessed      = processedAlerts.has(activity.id)
               const showActions      = activity.actionable && activity.type === "alert" && !isProcessed

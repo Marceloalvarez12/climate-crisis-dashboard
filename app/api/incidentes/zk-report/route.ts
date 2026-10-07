@@ -2,7 +2,6 @@ import { NextRequest } from "next/server"
 import * as crypto from "crypto"
 import { ZkService } from "@/lib/services/zk-service"
 import { StellarService } from "@/lib/services/stellar-service"
-import { IncidentService } from "@/lib/services/incident-service"
 import { apiSuccess, apiError, apiValidationError } from "@/lib/services/api-response"
 import { z } from "zod"
 
@@ -15,20 +14,11 @@ const ZkReportSchema = z.object({
   personasAfectadas: z.number().int().min(0).default(0),
   descripcion: z.string().max(500).optional(),
   contacto: z.string().email().optional(),
-  zoneHash: z.number().int().default(12345),
-  minLat: z.number().default(-27.0),
-  maxLat: z.number().default(-26.5),
-  minLng: z.number().default(-65.5),
-  maxLng: z.number().default(-65.0),
+
 })
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
-    const secret = request.headers.get("x-api-secret") || new URL(request.url).searchParams.get("secret")
-    if (secret !== process.env.API_SECRET) {
-      return apiError("Unauthorized", 401)
-    }
-
     const body = await request.json()
     const parsed = ZkReportSchema.safeParse(body)
     if (!parsed.success) {
@@ -36,18 +26,22 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     const dryRun = new URL(request.url).searchParams.get("dryRun") === "true"
+    if (dryRun && process.env.NODE_ENV !== "development") return apiError("No disponible", 403)
 
     const params = parsed.data
+    if (params.lat < -27 || params.lat > -26.5 || params.lng < -65.5 || params.lng > -65) {
+      return apiValidationError("La ubicación está fuera de la zona habilitada")
+    }
     const incidentId = crypto.randomUUID()
 
-    const { proof, publicSignals, input } = await ZkService.generateProof({
+    const { proof, publicSignals } = await ZkService.generateProof({
       lat: params.lat,
       lng: params.lng,
-      zoneHash: params.zoneHash,
-      minLat: params.minLat,
-      maxLat: params.maxLat,
-      minLng: params.minLng,
-      maxLng: params.maxLng,
+      zoneHash: 12345,
+      minLat: -27,
+      maxLat: -26.5,
+      minLng: -65.5,
+      maxLng: -65,
     })
 
     const { proofArg } = ZkService.proofToContractArgs(proof, publicSignals)
@@ -58,97 +52,57 @@ export async function POST(request: NextRequest): Promise<Response> {
     // reason (RPC outage, contract error, network timeout, etc.) we silently
     // fall back to a local ZK verification so the citizen experience never
     // breaks because of upstream infra issues.
-    const verifyOnChain = !StellarService.isSimulatedMode()
-    let verifyResult: { valid: boolean; txHash?: string; error?: string; isSimulated: boolean }
-    let stellarAudit: ReturnType<typeof StellarService.buildAuditFromIncident>["entry"] | null = null
+    const locallyVerified = await ZkService.verifyProofLocal(proof, publicSignals)
+    if (!locallyVerified) return apiError("La prueba de ubicación no es válida", 400)
 
-    if (verifyOnChain) {
+    let stellarAudit: ReturnType<typeof StellarService.buildAuditFromIncident>["entry"] | null = null
+    if (!dryRun && !StellarService.isSimulatedMode()) {
       try {
-        const audit = await StellarService.verifyAndStore(incidentId, {
+        stellarAudit = await StellarService.verifyAndStore(incidentId, {
           proof: contractProof,
           pubSignals: publicSignals,
         })
-        verifyResult = { valid: audit.verified, txHash: audit.txHash, isSimulated: false }
-        stellarAudit = audit
+        if (!stellarAudit.verified) return apiError("La verificación en cadena fue rechazada", 400)
       } catch (err) {
         // On-chain call failed — log server-side and fall back to local
         // verification rather than surfacing the error to the citizen.
-        const message = err instanceof Error ? err.message : String(err)
-        console.warn("[ZK Report] On-chain verify failed, falling back to local:", message)
-        const localResult = await StellarService.verifyProof({
-          proof: contractProof,
-          pubSignals: publicSignals,
-        })
-        // The proof is shape-valid; if the local artifacts are missing
-        // from the deployment we already accept it as verified. If the
-        // local verifier runs and disagrees, we still trust the proof —
-        // it was generated against the official bounding box by our
-        // own service, and the demo must keep working.
-        const fallbackHash = `local-${require("crypto").createHash("sha256").update(incidentId + publicSignals.join("|")).digest("hex")}`
-        verifyResult = {
-          valid: true,
-          txHash: localResult.valid ? localResult : fallbackHash,
-          isSimulated: false,
-        } as { valid: boolean; txHash?: string; error?: string; isSimulated: boolean }
-        if (!localResult.valid) {
-          verifyResult.txHash = fallbackHash
-        }
-      }
-    } else {
-      const localResult = await StellarService.verifyProof({
-        proof: contractProof,
-        pubSignals: publicSignals,
-      })
-      // The proof is shape-valid and was generated against the official
-      // bounding box — accept it regardless of what the local verifier
-      // reports, and emit a deterministic txHash so the audit trail
-      // looks real end-to-end.
-      verifyResult = {
-        valid: true,
-        txHash: `local-${require("crypto").createHash("sha256").update(incidentId + publicSignals.join("|")).digest("hex")}`,
-        isSimulated: false,
-      }
-      if (!localResult.valid) {
-        console.warn("[ZK Report] Local verifier rejected shape-valid proof, accepting anyway")
+        console.error("[ZK Report] No se pudo confirmar en Stellar:", err)
       }
     }
 
-    if (!verifyResult.valid) {
-      return apiError(`ZK proof verification failed: ${verifyResult.error || "invalid proof"}`, 400)
-    }
-
-    const audit = stellarAudit
-      ?? (() => {
-          const { entry, journalDigest } = StellarService.buildAuditFromIncident(
-            incidentId,
-            contractProof,
-            publicSignals
-          )
-          return { ...entry, verified: true, journalDigest }
-        })()
+    const audit = stellarAudit ?? (() => {
+      const { entry, journalDigest } = StellarService.buildAuditFromIncident(incidentId, contractProof, publicSignals)
+      return { ...entry, verified: true, isSimulated: false, journalDigest, explorerUrl: "" }
+    })()
 
     // El fallback local construye su propio audit sin txHash — preservar el
     // hash determinístico de verifyResult para que el ciudadano siempre
     // tenga un comprobante auditable, incluso sin contrato configurado.
-    const auditWithDispatch = {
-      ...audit,
-      txHash: audit.txHash ?? verifyResult.txHash,
+    const auditWithDispatch = { ...audit, verified: true, onChain: Boolean(stellarAudit?.txHash) }
+    const publicAudit = {
       verified: true,
-      dispatchedAt: new Date().toISOString(),
+      onChain: auditWithDispatch.onChain,
+      journalDigest: auditWithDispatch.journalDigest,
+      txHash: auditWithDispatch.txHash,
+      explorerUrl: auditWithDispatch.onChain ? auditWithDispatch.explorerUrl : undefined,
+      contractId: auditWithDispatch.onChain ? auditWithDispatch.contractId : undefined,
     }
 
     if (dryRun) {
       return apiSuccess({
         incidentId,
-        audit: auditWithDispatch,
+        audit: publicAudit,
         verified: true,
-        contractId: auditWithDispatch.contractId,
-        explorerUrl: auditWithDispatch.explorerUrl,
-        txHash: auditWithDispatch.txHash,
+        contractId: publicAudit.contractId,
+        explorerUrl: publicAudit.explorerUrl,
+        txHash: publicAudit.txHash,
         dryRun: true,
       })
     }
 
+    // Import perezoso: lib/supabase.ts lanza si faltan credenciales, y no
+    // queremos que eso rompa la validación ni el modo dryRun del reporte.
+    const { IncidentService } = await import("@/lib/services/incident-service")
     const incident = await IncidentService.create({
       tipo: params.tipo,
       severidad: params.severidad,
@@ -163,7 +117,6 @@ export async function POST(request: NextRequest): Promise<Response> {
         contacto: params.contacto,
         zk_proof: contractProof,
         zk_public_signals: publicSignals,
-        zk_input: input,
         stellar_audit: auditWithDispatch,
       },
     })
@@ -179,8 +132,9 @@ export async function POST(request: NextRequest): Promise<Response> {
         const { buildReportConfirmationEmail, sendMail } = await import("@/lib/services/resend-service")
         const mail = buildReportConfirmationEmail({
           incidentId: incident.id,
-          txHash: auditWithDispatch.txHash || auditWithDispatch.journalDigest || incident.id,
-          auditUrl: `${origin}/auditoria?key=${auditWithDispatch.txHash || incident.id}`,
+          txHash: auditWithDispatch.txHash,
+          onChain: auditWithDispatch.onChain,
+          auditUrl: auditWithDispatch.txHash ? `${origin}/auditoria?key=${auditWithDispatch.txHash}` : undefined,
           trackingUrl: `${origin}/seguimiento/${incident.id}`,
           tipo: params.tipo,
           severidad: params.severidad,
@@ -193,7 +147,7 @@ export async function POST(request: NextRequest): Promise<Response> {
           ),
         ])
         mailStatus = result.sent ? "sent" : "failed"
-        if (!result.sent) console.warn(`[ZK Report] Mail a ${params.contacto}: ${result.reason}`)
+        if (!result.sent) console.warn(`[ZK Report] Confirmación por correo falló: ${result.reason}`)
       } catch (mailErr) {
         console.warn("[ZK Report] Mail error:", mailErr)
         mailStatus = "failed"
@@ -201,18 +155,18 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     return apiSuccess({
-      incident,
-      audit: auditWithDispatch,
+      incident: { id: incident.id },
+      audit: publicAudit,
       verified: true,
-      contractId: auditWithDispatch.contractId,
-      explorerUrl: auditWithDispatch.explorerUrl,
-      txHash: auditWithDispatch.txHash,
+      contractId: publicAudit.contractId,
+      explorerUrl: publicAudit.explorerUrl,
+      txHash: publicAudit.txHash,
       mail: mailStatus,
       mailTo: mailStatus ? params.contacto : undefined,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "ZK report failed"
     console.error("[ZK Report] Error:", message)
-    return apiError(message, 500)
+    return apiError(message === "ZK_ARTIFACTS_UNAVAILABLE" ? "Verificación de ubicación no disponible" : "No se pudo procesar el reporte", 503)
   }
 }

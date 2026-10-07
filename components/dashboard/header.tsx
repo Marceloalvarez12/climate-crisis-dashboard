@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertTriangle, Radio, ShieldCheck, Zap, ExternalLink } from "lucide-react"
+import { AlertTriangle, ShieldCheck, ExternalLink } from "lucide-react"
+import Image from "next/image"
+import { logout } from "@/app/login/actions"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import type { Incident } from "@/lib/types"
@@ -32,17 +34,10 @@ export function DashboardHeader({ incidents = [] }: DashboardHeaderProps) {
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-md">
       {/* Left: brand */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/15">
-          <Radio className="h-4 w-4 text-primary" />
-        </div>
-        <div className="min-w-0 leading-tight">
-          <h1 className="truncate text-sm font-bold tracking-wide text-white sm:text-[15px]">
-            Climate Crisis Center
-          </h1>
-          <p className="hidden font-mono text-[9px] uppercase tracking-wider text-muted-foreground sm:block">
-            Command &amp; Control · Tucumán Node
-          </p>
-        </div>
+        <Link href="/" aria-label="Zntinel, centro de control">
+          <Image src="/zntinel-logo-optimized.png" alt="Zntinel" width={135} height={83} className="h-11 w-auto object-contain" priority />
+        </Link>
+        <span className="hidden text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:block">Centro de control · Tucumán</span>
       </div>
 
       {/* Right: actions + status */}
@@ -78,6 +73,9 @@ export function DashboardHeader({ incidents = [] }: DashboardHeaderProps) {
           Audit
           <ExternalLink className="h-2.5 w-2.5 opacity-50" />
         </Link>
+
+        <Link href="/admin" className="hidden text-xs text-zinc-400 hover:text-white md:block">Usuarios</Link>
+        <form action={logout}><button type="submit" className="text-xs text-zinc-400 hover:text-white">Salir</button></form>
 
         {/* Live clock — telemetry feel */}
         {currentTime && (
