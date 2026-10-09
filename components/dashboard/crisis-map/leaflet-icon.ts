@@ -1,16 +1,6 @@
 import { severityHex } from "./incident-helpers"
 import type { IncidentType, IncidentSource } from "@/lib/types"
 
-const INCIDENT_COLORS: Record<IncidentType, string> = {
-  flood: "#3b82f6", // blue-500
-  fire: "#ef4444", // red-500
-  storm: "#8b5cf6", // violet-500
-  looting: "#eab308", // yellow-500
-  violence: "#f97316", // orange-500
-  accident: "#64748b", // slate-500
-  general: "#f59e0b", // amber-500
-}
-
 const ICON_MAP: Record<IncidentType, string> = {
   flood:   "💧",
   fire:    "🔥",

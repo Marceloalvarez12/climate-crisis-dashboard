@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"
     console.error("[api/layers/cameras]", message)
-    return NextResponse.json({ count: 0, cameras: [], error: message }, { status: 200 })
+    return NextResponse.json({ count: 0, cameras: [], error: "Servicio de cámaras no disponible" }, { status: 503 })
   }
 }
 

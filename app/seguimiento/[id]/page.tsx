@@ -13,6 +13,7 @@ import type { DbIncident } from "@/lib/types"
 interface AuditTrail {
   stellarZk?: {
     verified: boolean
+    onChain?: boolean
     hash?: string
     contractId?: string
     explorerUrl?: string
@@ -54,7 +55,7 @@ export default function SeguimientoPage() {
         }
         const json = await res.json()
         setIncident(json)
-      } catch (err) {
+      } catch {
         toast.error("No se pudo cargar el seguimiento")
       } finally {
         setLoading(false)
@@ -95,16 +96,15 @@ export default function SeguimientoPage() {
   const audit: AuditTrail = {
     stellarZk: stellarAuditDetails
       ? {
-          verified: stellarAuditDetails.verified ?? true,
+          verified: stellarAuditDetails.verified === true,
+          onChain: stellarAuditDetails.onChain === true,
           hash: stellarAuditDetails.hash,
           contractId: stellarAuditDetails.contractId,
           explorerUrl: stellarAuditDetails.explorerUrl,
           dispatchedAt: stellarAuditDetails.dispatchedAt,
           isSimulated: stellarAuditDetails.isSimulated,
           txHash: stellarAuditDetails.txHash,
-          txExplorerUrl: stellarAuditDetails.txHash
-            ? `https://stellar.expert/explorer/testnet/tx/${stellarAuditDetails.txHash}`
-            : undefined,
+          txExplorerUrl: stellarAuditDetails.onChain ? stellarAuditDetails.explorerUrl : undefined,
           operator: stellarAuditDetails.operator,
           journalDigestLo: stellarAuditDetails.journalDigestLo,
           journalDigestHi: stellarAuditDetails.journalDigestHi,
@@ -135,7 +135,6 @@ export default function SeguimientoPage() {
     { label: "Verificación ZK", done: !!audit.stellarZk?.verified },
     { label: "En atención", done: incident.estado !== "activo" },
     { label: "Despacho auditado", done: !!audit.arkivDispatch },
-    { label: "Resuelto", done: incident.estado === "atendido" },
   ]
 
   return (
@@ -259,13 +258,13 @@ export default function SeguimientoPage() {
                       ? "Proof Groth16 verificado. La ubicación del reportante está dentro de la zona de riesgo oficial."
                       : "Verificación pendiente o fallida."}
                   </p>
-                  {audit.stellarZk.isSimulated ? (
+                  {!audit.stellarZk.onChain ? (
                     <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[9px]">
-                      Modo simulado (sin SECRET_KEY)
+                      {audit.stellarZk.verified ? "Verificación local" : "Verificación pendiente"}
                     </Badge>
                   ) : (
                     <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px]">
-                      Verificado on-chain (Soroban)
+                      Transacción confirmada (Soroban)
                     </Badge>
                   )}
                   {audit.stellarZk.txHash && (
@@ -322,9 +321,8 @@ export default function SeguimientoPage() {
                 </>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-zinc-500">
-                    Tu reporte está en la cola de atención. Cuando el centro de control despache
-                    recursos, el sello de despacho aparecerá acá con su hash verificable.
+                    <p className="text-zinc-500">
+                    No hay una auditoría de despacho confirmada en cadena. Consultá el estado operativo del reporte más arriba.
                   </p>
                   <div className="flex items-center gap-2 font-mono text-[9px] text-zinc-600">
                     <span className="h-1.5 w-1.5 rounded-full bg-zinc-600 animate-pulse" />

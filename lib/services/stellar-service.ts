@@ -10,7 +10,6 @@ import {
   BASE_FEE,
   Address,
   type Account,
-  StrKey,
 } from "@stellar/stellar-sdk"
 import * as crypto from "crypto"
 import { CONFIG } from "@/lib/config"
@@ -77,7 +76,11 @@ export class StellarService {
 
   private static isSimulated(): boolean {
     const key = process.env.STELLAR_SECRET_KEY
-    return !key || key === "0xREEMPLAZAR_CON_TU_SECRET_KEY_AQUI"
+    if (!key || key === "0xREEMPLAZAR_CON_TU_SECRET_KEY_AQUI") return true
+    // A regenerated setup cannot verify against the previously deployed key.
+    // Enable on-chain calls only after the operator confirms the matching VK.
+    const expectedHash = process.env.STELLAR_ZK_VK_SHA256
+    return !expectedHash || expectedHash !== ZkService.verificationKeyHash()
   }
 
   private static getOperatorKeypair(): Keypair | null {
@@ -301,6 +304,7 @@ export class StellarService {
       ...entry,
       verified: true,
       txHash: send.hash,
+      journalDigest,
       explorerUrl,
       storedAt: new Date().toISOString(),
     }

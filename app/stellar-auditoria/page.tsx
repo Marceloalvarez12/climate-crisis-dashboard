@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -41,6 +41,10 @@ interface VerifyResult {
 
 function AuditoriaContent() {
   const searchParams = useSearchParams()
+  const urlProofA = searchParams.get("a") || ""
+  const urlProofB = searchParams.get("b") || ""
+  const urlProofC = searchParams.get("c") || ""
+  const urlPubSignals = searchParams.get("pubSignals") || ""
   const [proofA, setProofA] = useState(searchParams.get("a") || "")
   const [proofB, setProofB] = useState(searchParams.get("b") || "")
   const [proofC, setProofC] = useState(searchParams.get("c") || "")
@@ -63,16 +67,11 @@ function AuditoriaContent() {
     return parts.length > 0 ? parts : null
   }
 
-  const handleVerify = async (e?: React.FormEvent) => {
-    e?.preventDefault()
-    const signals = parsePubSignals()
-    if (!proofA || !proofB || !proofC || signals === null) return
-
+  const verifyProof = useCallback(async (proof: Groth16ProofInput, signals: string[]) => {
     setLoading(true)
     setResult(null)
 
     try {
-      const proof: Groth16ProofInput = { a: proofA, b: proofB, c: proofC }
       const res = await fetch("/api/stellar/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,24 +79,32 @@ function AuditoriaContent() {
       })
       const json = await res.json()
 
-      if (json.success) {
-        setResult(json.data)
-        toast.success(json.data.valid ? "Proof verified on Stellar" : "Verification failed")
+      if (res.ok) {
+        setResult(json)
+        toast.success(json.valid ? "Proof verified" : "Verification failed")
       } else {
         toast.error(json.error || "Error verifying proof")
       }
-    } catch (err) {
+    } catch {
       toast.error("Network error connecting to Stellar")
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  const handleVerify = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const signals = parsePubSignals()
+    if (!proofA || !proofB || !proofC || signals === null) return
+    return verifyProof({ a: proofA, b: proofB, c: proofC }, signals)
   }
 
   useEffect(() => {
-    if (proofA && proofB && proofC) {
-      handleVerify()
+    if (urlProofA && urlProofB && urlProofC) {
+      const signals = urlPubSignals.split(",").map(s => s.trim()).filter(Boolean)
+      void verifyProof({ a: urlProofA, b: urlProofB, c: urlProofC }, signals)
     }
-  }, [])
+  }, [urlProofA, urlProofB, urlProofC, urlPubSignals, verifyProof])
 
   const copyContractId = () => {
     navigator.clipboard.writeText(result?.contractId || "")

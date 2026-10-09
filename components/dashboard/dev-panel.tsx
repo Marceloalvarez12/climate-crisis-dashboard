@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   Play, Square, Zap, X, Terminal, Cpu, Database,
@@ -138,7 +138,7 @@ function SocialComposer({ onPublish }: { onPublish: (platform: SimulatedPlatform
   )
 }
 
-function DispatchCard({ dispatch, onDispatch }: {
+function DispatchCard({ dispatch }: {
   dispatch: ActiveDispatch
   onDispatch: () => void
 }) {

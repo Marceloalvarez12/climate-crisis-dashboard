@@ -6,7 +6,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: [".next/**", "node_modules/**", "out/**", "public/**", "scratch/**"],
+    ignores: [".next/**", "node_modules/**", "out/**", "public/**", "scratch/**", "zk/build/**", "zk/.setup-*/**"],
   },
   {
     plugins: {

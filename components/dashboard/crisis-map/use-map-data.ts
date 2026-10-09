@@ -3,7 +3,7 @@
 import { useMemo } from "react"
 import useSWR from "swr"
 import { fetcher } from "@/lib/api"
-import type { Incident, DbIncident } from "@/lib/types"
+import type { Incident, DbIncident, DbResource } from "@/lib/types"
 
 const SWR_CONFIG = {
   refreshInterval: 3000,
@@ -26,7 +26,7 @@ export function dbToIncident(inc: DbIncident): Incident {
     source:         inc.fuente as Incident["source"],
     sourceDetails:  inc.fuente_detalles || {},
     estado:         inc.estado,
-    arkiv_key:      (inc.fuente_detalles as any)?.arkiv_entity_key,
+    arkiv_key:      typeof inc.fuente_detalles?.arkiv_entity_key === "string" ? inc.fuente_detalles.arkiv_entity_key : undefined,
   }
 }
 
@@ -47,5 +47,5 @@ export function useIncidents(estado: "activo" | "atendido" = "activo") {
 
 /** Hook de recursos con polling cada 3 s - hook compartido para CrisisMap y ResourcesPanel */
 export function useResources() {
-  return useSWR("/api/recursos", fetcher, SWR_CONFIG)
+  return useSWR<DbResource[]>("/api/recursos", fetcher, SWR_CONFIG)
 }

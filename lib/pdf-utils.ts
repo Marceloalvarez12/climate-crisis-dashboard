@@ -20,7 +20,7 @@
 export async function generatePdfSilently(fn: () => Promise<void>): Promise<void> {
   const originalConsoleError = console.error
 
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     const msg = String(args[0] || "")
     // Suppress only the specific html2canvas color parsing warning
     if (msg.includes("unsupported color function")) {

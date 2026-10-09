@@ -45,9 +45,9 @@ export class IncidentService {
       .from("incidentes")
       .select("*")
       .eq("id", id)
-      .single()
+      .maybeSingle()
 
-    if (error) return null
+    if (error) throw new Error(`Failed to fetch incident: ${error.message}`)
     return data
   }
 

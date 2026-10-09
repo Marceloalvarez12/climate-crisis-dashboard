@@ -204,6 +204,13 @@ ARKIV_PRIVATE_KEY=0x_tu_private_key_aqui
 # `verify_and_store` (no read-only) crea una TX real on-chain y persiste un AuditRecord.
 # Sin `STELLAR_SECRET_KEY` válida, se verifica la prueba Groth16 localmente con snarkjs, pero no hay transacción on-chain ni txHash. Los artefactos del circuito son obligatorios.
 STELLAR_SECRET_KEY=tu-clave-privada-stellar
+STELLAR_ZK_VK_SHA256=hash-de-verification_key.json-del-contrato-actualizado
+
+# Rate limit compartido entre instancias (solo servidor)
+UPSTASH_REDIS_REST_URL=https://tu-instancia.upstash.io
+UPSTASH_REDIS_REST_TOKEN=tu-token-de-escritura
+RATE_LIMIT_PREFIX=zntinel-production
+RATE_LIMIT_REQUIRE_DISTRIBUTED=true
 ```
 
 > ⚠️ **Nunca subís `.env.local` a git.** El repositorio ya ignora archivos `.env*`.
@@ -224,6 +231,10 @@ http://localhost:3000?dev=true
 ```
 
 Para probar reportes ciudadanos ZK:
+
+Los artefactos Groth16 se incluyen en el repositorio. Ejecutar `npm run zk:check`
+para verificarlos; `npm run build` comprueba su integridad antes de compilar.
+Ver [generación, despliegue y actualización de Soroban](zk/README.md).
 
 ```
 http://localhost:3000/reportar

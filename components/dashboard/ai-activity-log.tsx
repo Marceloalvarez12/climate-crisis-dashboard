@@ -13,11 +13,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
-import type { ActivityItem, SatelliteValidation } from "./ai-activity-log/types"
+import type { ActivityItem } from "./ai-activity-log/types"
 import type { DbIncident } from "@/lib/types"
 import { ActivityIcon, activityIconColor, SeverityBadge } from "./ai-activity-log/activity-helpers"
 import { ReasoningPanel, ConfidenceBadge } from "./ai-activity-log/reasoning-panel"
-import { SatelliteModal } from "./ai-activity-log/satellite-modal"
 import { AlertActions, ConfirmActionDialog } from "./ai-activity-log/alert-actions"
 
 // ---------------------------------------------------------------------------
@@ -66,8 +65,7 @@ export function AIActivityLog() {
   const [confirmDialog,       setConfirmDialog]       = useState<{ open: boolean; type: "deploy" | "notify"; activity: ActivityItem | null }>({ open: false, type: "deploy", activity: null })
   const [processedAlerts,     setProcessedAlerts]     = useState<Set<string>>(new Set())
   const [expandedReasoning,   setExpandedReasoning]   = useState<Set<string>>(new Set())
-  const [validatingSatellite, setValidatingSatellite] = useState<string | null>(null)
-  const [satelliteModal,      setSatelliteModal]      = useState<SatelliteValidation | null>(null)
+  const validatingSatellite: string | null = null
 
   const scrollRef          = useRef<HTMLDivElement>(null)
   const seenIncidentsRef   = useRef<Set<string>>(new Set())
@@ -81,12 +79,6 @@ export function AIActivityLog() {
     onResolved: (locations) => {
       locations.forEach((loc) => {
         addActivity({ type: "complete", message: `Incident at ${loc} automatically closed (5 min without attention)` })
-      })
-    },
-    onResourcesReset: (nombres) => {
-      addActivity({
-        type:    "complete",
-        message: `Resources automatically released: ${nombres.join(", ")}`,
       })
     },
   })
@@ -121,107 +113,37 @@ export function AIActivityLog() {
     })
   }
 
-  const handleValidateSatellite = async (activityId: string) => {
-    setValidatingSatellite(activityId)
-    await new Promise((resolve) => setTimeout(resolve, 2500))
-
-    const activity = activities.find((a) => a.id === activityId)
-    if (!activity) { setValidatingSatellite(null); return }
-
-    const msg      = activity.message.toLowerCase()
-    const isFlood  = msg.includes("inundacion") || msg.includes("desborde") || msg.includes("agua")
-    const isFire   = msg.includes("incendio")   || msg.includes("fuego")
-
-    const validation: SatelliteValidation = {
-      activity,
-      imageUrl: isFlood
-        ? "https://images.unsplash.com/photo-1446824505046-e43605ffb17f?w=800&h=500&fit=crop"
-        : isFire
-          ? "https://images.unsplash.com/photo-1486551937199-baf066858de7?w=800&h=500&fit=crop"
-          : "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=500&fit=crop",
-      analysisData: {
-        waterDetected:    isFlood,
-        affectedAreaKm2:  isFlood ? 2.4 : isFire ? 0.8 : 1.2,
-        vegetationDamage: isFire  ? "Severo (78%)"  : isFlood ? "Moderado (34%)" : "Bajo (12%)",
-        thermalAnomaly:   isFire,
-        cloudCoverage:    15,
-        captureTime:      new Date().toISOString(),
-        satellite:        "Sentinel-2A",
-        resolution:       "10m/pixel",
-      },
-    }
-
-    setSatelliteModal(validation)
-    setActivities((prev) =>
-      prev.map((a) => (a.id === activityId ? { ...a, confidence: 98 } : a))
-    )
-    setValidatingSatellite(null)
+  const handleValidateSatellite = () => {
+    toast.info("No hay un proveedor de verificación satelital conectado. Consultá las cámaras y fuentes del incidente.")
   }
 
   const confirmAction = async () => {
     if (!confirmDialog.activity) return
-
     const { id: activityId, location = "", incidentId } = confirmDialog.activity
-    setProcessedAlerts((prev) => new Set(prev).add(activityId))
-    setConfirmDialog((prev) => ({ ...prev, open: false, activity: null }))
-
-    if (confirmDialog.type === "deploy") {
-      try {
-        const incidentes: Array<{ id: string; ubicacion: string; tipo: string; fuente: string }> = await fetcher("/api/incidentes?estado=activo")
-
-        const incidente = incidentes.find((inc) => inc.id === incidentId) ?? incidentes.find((inc) => {
-          const incLoc = inc.ubicacion.toLowerCase()
-          const actLoc = location.toLowerCase()
-          return incLoc.includes(actLoc.split(",")[0].trim()) || actLoc.includes(incLoc.split("-")[0].trim())
-        })
-
-        if (incidente) {
-          try {
-            const response = await fetch("/api/incidentes/arkiv-dispatch", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                id: incidente.id,
-                tipo: incidente.tipo,
-                severidad: (incidente as any).severidad || "medium",
-                ubicacion: incidente.ubicacion,
-                afectados: (incidente as any).personas_afectadas || 0,
-              }),
-            })
-            const data = await response.json()
-            if (response.ok && data.success) {
-              console.log("[ai-activity-log] Dispatch signed on-chain from AI agent panel:", data.entityKey)
-            } else {
-              console.warn("[ai-activity-log] On-chain signing failed from AI panel, falling back to local patch:", data.error)
-              await patchIncidente(incidente.id, { estado: "atendido" })
-            }
-          } catch (e) {
-            console.error("[ai-activity-log] On-chain dispatch error from AI panel, falling back to local patch:", e)
-            await patchIncidente(incidente.id, { estado: "atendido" })
-          }
-        }
-
-        await dispatchResourceWithLifecycle(incidente?.id, undefined, () => {
-          mutate("/api/recursos")
-        })
-        mutate("/api/incidentes?estado=activo")
-        mutate("/api/incidentes?estado=atendido")
-        mutate("/api/analytics")
-      } catch (err) {
-          console.error("[ai-activity-log] Error in handleDispatch:", err)
-        }
-
-      toast.success("Resources deployed", {
-        description: `Units on their way to ${location}. Incident removed from active.`,
+    setConfirmDialog(prev => ({ ...prev, open: false, activity: null }))
+    if (confirmDialog.type !== "deploy") {
+      toast.info("La notificación automática no está configurada. Usá el canal operativo de comunicación.")
+      return
+    }
+    try {
+      if (!incidentId) throw new Error("La alerta no tiene un incidente asociado")
+      const incidentes: DbIncident[] = await fetcher("/api/incidentes?estado=activo")
+      const incidente = incidentes.find(inc => inc.id === incidentId)
+      if (!incidente) throw new Error("El incidente ya no está activo. Actualizá la vista.")
+      await dispatchResourceWithLifecycle(incidente.id)
+      await patchIncidente(incidente.id, { estado: "atendido" })
+      setProcessedAlerts(prev => new Set(prev).add(activityId))
+      toast.success("Recursos despachados", { description: location })
+      addActivity({ type: "complete", message: "Despacho confirmado para " + location })
+      const response = await fetch("/api/incidentes/arkiv-dispatch", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: incidente.id }),
       })
-      addActivity({ type: "complete", message: `Coordinates and resources sent to teams at ${location}` })
-    } else {
-      toast.success("Authorities notified", {
-        description: `Civil Defense and Fire Dept. alerted about ${location}`,
-      })
-      addActivity({ type: "complete", message: `Authorities notified about incident at ${location}` })
+      const data = await response.json()
+      if (!response.ok || data.onChain !== true) toast.info("Despacho registrado; auditoría en cadena no confirmada")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo confirmar el despacho")
+    } finally {
+      await Promise.allSettled([mutate("/api/recursos"), mutate("/api/incidentes?estado=activo"), mutate("/api/incidentes?estado=atendido"), mutate("/api/analytics")])
     }
   }
 
@@ -347,11 +269,6 @@ export function AIActivityLog() {
         onConfirm={confirmAction}
       />
 
-      {/* Satellite modal */}
-      <SatelliteModal
-        validation={satelliteModal}
-        onClose={() => setSatelliteModal(null)}
-      />
     </div>
   )
 }

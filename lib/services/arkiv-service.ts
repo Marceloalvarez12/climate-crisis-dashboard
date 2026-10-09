@@ -39,8 +39,8 @@ export class ArkivService {
     return createPublicClient({ chain: braga, transport: http() })
   }
 
-  static generateSimulatedKey(): string {
-    return `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`
+  static isConfigured(): boolean {
+    return !this.isSimulated()
   }
 
   static isSimulatedKey(key: string): boolean {
@@ -49,7 +49,7 @@ export class ArkivService {
   }
 
   static isValidEntityKey(key: string): boolean {
-    return key.startsWith("0x") && key.length === 66
+    return /^0x[0-9a-fA-F]{64}$/.test(key)
   }
 
   static isWalletAddress(key: string): boolean {
@@ -75,10 +75,9 @@ export class ArkivService {
   static async createDispatchEntity(
     payload: DispatchPayload,
     attributes: Array<{ key: string; value: string }>
-  ): Promise<{ entityKey: string; isSimulated: boolean }> {
+  ): Promise<{ entityKey?: string; isSimulated: boolean }> {
     if (this.isSimulated()) {
-      console.warn("[Arkiv] Simulated mode - generating fake entity key")
-      return { entityKey: this.generateSimulatedKey(), isSimulated: true }
+      return { isSimulated: true }
     }
 
     const client = this.getWalletClient()

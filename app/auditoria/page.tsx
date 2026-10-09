@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { ShieldCheck, ShieldAlert, Loader2, ArrowLeft, Search, Copy, Check, ExternalLink, Calendar, Users, MapPin, AlertTriangle, FileJson, Cpu, UserCheck, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import Link from "next/link"
+import { ArkivAuditPayloadSchema, type ArkivAuditPayload } from "@/lib/arkiv-audit"
 
 function AuditoriaContent() {
   const searchParams = useSearchParams()
@@ -23,18 +24,18 @@ function AuditoriaContent() {
   const [data, setData] = useState<{
     creator: string
     expiresAtBlock: string | null
-    payload: any
+    payload: ArkivAuditPayload
     isSimulated?: boolean
     linkedEntity?: {
       key: string
       creator: string
       expiresAtBlock: string | null
-      payload: any
+      payload: ArkivAuditPayload
     } | null
     relation?: 'detection_to_dispatch' | 'dispatch_to_detection' | null
   } | null>(null)
 
-  const handleVerify = async (keyToVerify: string) => {
+  const handleVerify = useCallback(async (keyToVerify: string) => {
     const trimmed = keyToVerify.trim()
     if (!trimmed) return
     if (!trimmed.startsWith("0x")) {
@@ -60,9 +61,9 @@ function AuditoriaContent() {
         setData({
           creator: json.creator,
           expiresAtBlock: json.expiresAtBlock,
-          payload: json.payload,
+          payload: ArkivAuditPayloadSchema.parse(json.payload),
           isSimulated: json.isSimulated,
-          linkedEntity: json.linkedEntity,
+          linkedEntity: json.linkedEntity ? { ...json.linkedEntity, payload: ArkivAuditPayloadSchema.parse(json.linkedEntity.payload) } : null,
           relation: json.relation,
         })
         setVerified(true)
@@ -72,18 +73,18 @@ function AuditoriaContent() {
       } else {
         setError(json.error || "Could not verify the entity on-chain.")
       }
-    } catch (err) {
+    } catch {
       setError("Network error trying to connect to the Braga network.")
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
 
   useEffect(() => {
     if (keyParam) {
       handleVerify(keyParam)
     }
-  }, [keyParam])
+  }, [keyParam, handleVerify])
 
   const copyUrl = () => {
     navigator.clipboard.writeText(window.location.href)
@@ -149,7 +150,7 @@ function AuditoriaContent() {
             Braga On-Chain Verification
           </h1>
           <p className="max-w-xl mx-auto text-sm text-zinc-400 leading-relaxed">
-            Independently query any report or dispatch from the Climate Crisis Center. Cryptographic signatures are immutable and freely accessible.
+            Consultá reportes y despachos confirmados. Los registros Arkiv tienen una vigencia de siete días en Braga Testnet.
           </p>
         </div>
 
@@ -235,7 +236,7 @@ function AuditoriaContent() {
                       <Badge className="bg-emerald-500 text-black text-[9px] font-bold py-0.5 px-2">VALID</Badge>
                     </div>
                     <p className="text-xs text-emerald-300">
-                      This record has been sealed with an immutable cryptographic signature on Braga Network.
+                      Este registro fue confirmado criptográficamente en Braga Network.
                     </p>
                   </div>
                 </div>
@@ -349,7 +350,7 @@ function AuditoriaContent() {
                             {data.isSimulated ? (
                               <Badge className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[8px] px-1 h-4">Simulation</Badge>
                             ) : (
-                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] px-1 h-4">Lease Extended</Badge>
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] px-1 h-4">Entidad confirmada</Badge>
                             )}
                           </div>
                         </div>

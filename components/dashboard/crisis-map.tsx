@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { toast } from "sonner"
-import type { Incident, IncidentSource, IncidentType, DbIncident } from "@/lib/types"
+import type { Incident, IncidentSource, IncidentType } from "@/lib/types"
+import { dispatchSelectedResources } from "@/lib/resource-dispatch"
 import { useIncidents, useResources } from "./crisis-map/use-map-data"
 import { IncidentIcon, SourceIcon, severityColorClass, sourceLabel, incidentTypeLabel } from "./crisis-map/incident-helpers"
 import { IncidentDetailModal, DeployModal } from "./crisis-map/map-modals"
@@ -31,7 +32,6 @@ const MapInner = dynamic(
   { ssr: false }
 )
 
-const MAP_CENTER: [number, number] = [-26.8241, -65.2226]
 const SOURCE_TYPES: IncidentSource[] = ["social", "sensor", "camera", "citizen"]
 const INCIDENT_TYPES: Array<{ value: IncidentType; label: string }> = [
   { value: "flood", label: "Flood" },
@@ -69,7 +69,7 @@ export function CrisisMap() {
   const [selectedCounts,     setSelectedCounts]     = useState<Record<string, number>>({})
 
   // ── Data ──────────────────────────────────────────────────────────────────
-  const { incidents: dbIncidents, mutate: mutateIncidents } = useIncidents(viewMode)
+  const { incidents: dbIncidents } = useIncidents(viewMode)
   const { data: dbRecursos, mutate: mutateRecursos }        = useResources()
 
   // All incidents come from the database (real + respawned)
@@ -172,7 +172,7 @@ export function CrisisMap() {
   const handleConfirmDeploymentTransition = () => {
     const totalSelected = Object.values(selectedCounts).reduce((a, b) => a + b, 0)
     if (totalSelected === 0) {
-      toast.error("Select at least one resource to deploy")
+      toast.error("Seleccioná al menos un recurso para despachar")
       return
     }
     setShowDeployModal(false)
@@ -198,8 +198,7 @@ export function CrisisMap() {
   const handleDeployResources = async () => {
     const totalSelected = Object.values(selectedCounts).reduce((a, b) => a + b, 0)
     if (totalSelected === 0) {
-      toast.error("Select at least one resource to deploy")
-      return
+      throw new Error("Seleccioná al menos un recurso para despachar")
     }
 
     const incidenteId = selectedIncident?.id
@@ -207,29 +206,16 @@ export function CrisisMap() {
       g.availableIds.slice(0, selectedCounts[g.tipo] ?? 0)
     )
 
-    // Optimistic update in cache
-    if (dbRecursos) {
-      mutateRecursos(
-        dbRecursos.map((r: DbIncident & { estado: string }) => idsToDispatch.includes(r.id) ? { ...r, estado: "dispatched" } : r),
-        false,
-      )
-    }
-
-    // Dispatch resources immediately
-    if (incidenteId) {
-      // Patch incident to attended state
-      await patchIncidente(incidenteId, { estado: "atendido" }).catch((err) => console.error("[CrisisMap] Error updating incident:", err))
-      
-      // Force global revalidation of both lists and analytics
-      mutate("/api/incidentes?estado=activo")
-      mutate("/api/incidentes?estado=atendido")
-      mutate("/api/analytics")
-
-      // Dispatch resources with lifecycle
-      await Promise.all(
-        idsToDispatch.map((id) => dispatchResourceWithLifecycle(incidenteId, id, () => mutateRecursos()).catch((err) => console.error("[CrisisMap] Error dispatching resource:", err)))
-      )
-      await mutateRecursos()
+    if (idsToDispatch.length !== totalSelected) throw new Error("Cambió la disponibilidad de recursos. Revisá la selección.")
+    setDeployingResources(true)
+    try {
+      await dispatchSelectedResources(incidenteId, idsToDispatch, {
+        dispatch: (incidentId, resourceId) => dispatchResourceWithLifecycle(incidentId, resourceId),
+        markAttended: (incidentId) => patchIncidente(incidentId, { estado: "atendido" }),
+      })
+    } finally {
+      setDeployingResources(false)
+      await Promise.allSettled([mutateRecursos(), mutate("/api/incidentes?estado=activo"), mutate("/api/incidentes?estado=atendido"), mutate("/api/analytics")])
     }
   }
 

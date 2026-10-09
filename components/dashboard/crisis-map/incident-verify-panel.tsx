@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { Camera, ExternalLink, Video, MapPin, Loader2, Compass, Navigation } from "lucide-react"
-import { cn } from "@/lib/utils"
 import type { Incident } from "@/lib/types"
 
 interface CameraHit {
@@ -14,19 +13,6 @@ interface CameraHit {
   lat: number
   lng: number
   distanceM: number
-}
-
-interface CamerasApiResponse {
-  count: number
-  cameras: Array<{
-    id: string
-    kind: "surveillance" | "speed_camera"
-    coordinates: { lat: number; lng: number }
-    name: string
-    operator: string | null
-    direction: string | null
-    url: string | null
-  }>
 }
 
 interface IncidentVerifyPanelProps {
@@ -55,12 +41,6 @@ export function IncidentVerifyPanel({ incident, defaultRadius = 1500 }: Incident
 
     const lat = incident.coordinates.lat
     const lng = incident.coordinates.lng
-
-    const query = `[out:json][timeout:10];(
-      node["man_made"="surveillance"](around:${defaultRadius},${lat},${lng});
-      way["man_made"="surveillance"](around:${defaultRadius},${lat},${lng});
-      node["highway"="speed_camera"](around:${defaultRadius},${lat},${lng});
-    );out tags;`
 
     // Usar proxy server-side: maneja CORS, CSP, timeouts, cache, fallback de mirrors
     fetch("/api/layers/cameras", {
@@ -222,17 +202,4 @@ export function IncidentVerifyPanel({ incident, defaultRadius = 1500 }: Incident
       </div>
     </div>
   )
-}
-
-function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6_371_000
-  const φ1 = (lat1 * Math.PI) / 180
-  const φ2 = (lat2 * Math.PI) / 180
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180
-  const Δλ = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(Δφ / 2) ** 2 +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
 }

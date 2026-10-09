@@ -110,12 +110,21 @@ export function BroadcastPanel() {
   const confirmSend = async () => {
     if (!selectedChannel) return
 
+    if (process.env.NODE_ENV !== "development") {
+      toast.error("Canal de difusión no configurado", {
+        description: "Conectá un proveedor de mensajería antes de enviar comunicaciones reales.",
+      })
+      setShowMessageDialog(false)
+      setSelectedChannel(null)
+      return
+    }
+
     setChannels(prev => prev.map(ch => 
       ch.id === selectedChannel.id ? { ...ch, status: "sending" as const } : ch
     ))
     setShowMessageDialog(false)
 
-    // Simulate sending
+    // The development panel intentionally simulates delivery; production requires a configured provider.
     await new Promise(resolve => setTimeout(resolve, 2000))
 
     setChannels(prev => prev.map(ch => 
@@ -159,8 +168,8 @@ export function BroadcastPanel() {
   }
 
   const handleRefreshMap = () => {
-    toast.success("Heat map updated", {
-      description: "New sensor data integrated",
+    toast.info("El mapa se actualiza con datos en tiempo real", {
+      description: "No hay un proveedor de sensores configurado para una actualización manual.",
     })
   }
 

@@ -30,7 +30,7 @@ export class XConnector extends SocialConnector {
     return false // desactivado hasta tener credenciales
   }
 
-  async fetchPosts(options: ConnectorOptions): Promise<SocialPost[]> {
+  async fetchPosts(_options: ConnectorOptions): Promise<SocialPost[]> {
     if (!this.isConfigured()) {
       throw new Error("X connector no configurado: falta X_BEARER_TOKEN en .env.local")
     }

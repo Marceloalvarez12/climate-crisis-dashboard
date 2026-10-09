@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { Brain, Sparkles, Zap, CheckCircle2, Loader2, Satellite, ChevronDown, ChevronUp, Target, ShieldCheck, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

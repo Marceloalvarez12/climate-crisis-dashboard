@@ -10,11 +10,11 @@
  *      incident timestamps, deployed resources, and blockchain hashes
  */
 import { jsPDF } from "jspdf"
+import type { IncidentSourceDetails } from "@/lib/types"
 
 // ── Layout Constants (inches, letter size) ──
 const M = 0.45 // margin
 const PW = 8.5
-const PH = 11
 const CW = PW - 2 * M
 
 // ── Color Palette (RGB tuples) ──
@@ -63,14 +63,6 @@ function fmtDate(iso: string): string {
   } catch { return iso || "—" }
 }
 
-function fmtTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("es-AR", {
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
-    })
-  } catch { return iso || "—" }
-}
-
 const tipoLabels: Record<string, string> = {
   flood: "Inundacion", fire: "Incendio", storm: "Tormenta",
   looting: "Saqueos", violence: "Violencia", accident: "Accidente",
@@ -108,15 +100,6 @@ function sectionTitle(doc: jsPDF, y: number, text: string): number {
   return y + 0.2
 }
 
-// Check if we need a new page, return new y
-function checkPage(doc: jsPDF, y: number, needed: number): number {
-  if (y + needed > PH - M - 0.4) {
-    doc.addPage()
-    return M + 0.2
-  }
-  return y
-}
-
 // ── Types ──
 
 interface IncidenteData {
@@ -139,7 +122,7 @@ interface IncidentRow {
   updated_at: string
   fuente?: string
   arkiv_key?: string
-  fuente_detalles?: Record<string, unknown>
+  fuente_detalles?: IncidentSourceDetails
 }
 
 interface RecursoRow {
@@ -162,7 +145,6 @@ interface AnalyticsData {
   avgResponseMin?: number
   resourceProgress?: number
 }
-
 
 // ════════════════════════════════════════════════════════════════
 //  1. Incident Report (per-incident, with Arkiv seal & QR)
@@ -383,7 +365,6 @@ export async function generateIncidentPdf(
   doc.save(`Reporte_Oficial_${incidente.id.slice(0, 8)}.pdf`)
 }
 
-
 // ════════════════════════════════════════════════════════════════
 //  2. PLANILLA OPERATIVA — General Situation Report
 //     Includes: timestamps, deployed resources per incident,
@@ -548,7 +529,7 @@ export function generateGeneralReport(
       // Hash Arkiv
       doc.setFont("courier", "normal")
       doc.setFontSize(5)
-      const key = (inc.fuente_detalles?.ai_analysis as any)?.arkiv_entity_key || inc.fuente_detalles?.arkiv_entity_key as string || "—"
+      const key = inc.fuente_detalles?.ai_analysis?.arkiv_entity_key || inc.fuente_detalles?.arkiv_entity_key || "—"
       const displayKey = key.length > 30 ? key.slice(0, 28) + ".." : key
       doc.text(displayKey, rx + 0.06, y + 0.14)
       doc.setFontSize(6)
@@ -657,7 +638,7 @@ export function generateGeneralReport(
       // Hash IA (Arkiv)
       doc.setFont("courier", "normal")
       doc.setFontSize(5)
-      const aiKey = (inc.fuente_detalles?.ai_analysis as any)?.arkiv_entity_key || inc.fuente_detalles?.arkiv_entity_key as string || "—"
+      const aiKey = inc.fuente_detalles?.ai_analysis?.arkiv_entity_key || inc.fuente_detalles?.arkiv_entity_key || "—"
       const displayAiKey = aiKey.length > 25 ? aiKey.slice(0, 11) + ".." + aiKey.slice(-12) : aiKey
       doc.text(displayAiKey, rx + 0.06, y + 0.14)
       rx += hCols[5].w

@@ -8,13 +8,6 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { RecursoIcon, tipoRecursoLabel } from "./crisis-map/resource-helpers"
 
-// ---------------------------------------------------------------------------
-// NOTE: The on-chain dispatch functionality (Arkiv Blockchain)
-// is partially commented out below. To enable it, uncomment the
-// block marked with [ARKIV ON-CHAIN] and ensure that
-// ARKIV_PRIVATE_KEY is configured in .env.local
-// ---------------------------------------------------------------------------
-
 interface IncidentData {
   id: string
   tipo: string
@@ -26,24 +19,15 @@ interface IncidentData {
 }
 
 interface IncidentDispatchCardProps {
-  incident?: IncidentData
+  incident: IncidentData
   selectedCounts?: Record<string, number>
   onConfirmDispatch?: () => Promise<void>
   onDispatchSuccess?: () => void
   onDismiss?: () => void
 }
 
-const DEFAULT_INCIDENT: IncidentData = {
-  id: `inc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-  tipo: "flood",
-  severidad: "critical",
-  ubicacion: "Barrio San Pablo - Canal Norte",
-  afectados: 720,
-  timestamp: new Date().toISOString(),
-}
-
 export function IncidentDispatchCard({
-  incident = DEFAULT_INCIDENT,
+  incident,
   selectedCounts,
   onConfirmDispatch,
   onDispatchSuccess,
@@ -56,22 +40,15 @@ export function IncidentDispatchCard({
   const [arkivKey, setArkivKey] = useState<string | undefined>(undefined)
 
   const handleDeployResources = async () => {
+    if (isDeploying || deployed) return
     setIsDeploying(true)
     setError(null)
 
     try {
       // 1) DB dispatch PRIMERO — Supabase responde en ~200ms, así el operador
       //    ve feedback inmediato. Arkiv/Stellar corren después en background.
-      if (onConfirmDispatch) {
-        try {
-          await onConfirmDispatch()
-        } catch (e) {
-          console.error("[Dispatch] onConfirmDispatch failed:", e)
-        }
-      } else {
-        // LOCAL fallback dispatch
-        await new Promise(resolve => setTimeout(resolve, 800))
-      }
+      if (!onConfirmDispatch) throw new Error("No está configurada la operación de despacho")
+      await onConfirmDispatch()
 
       setDeployed(true)
       onDispatchSuccess?.()
@@ -101,14 +78,16 @@ export function IncidentDispatchCard({
           clearTimeout(timeoutId)
           const data = await response.json()
           if (response.ok && data.success) {
-            const blockchainKey = data.entityKey as string
-            setArkivKey(blockchainKey)
+            const blockchainKey = data.entityKey as string | undefined
+            if (data.onChain === true && blockchainKey) setArkivKey(blockchainKey)
             if (data.stellarAudit) {
               setStellarAudit(data.stellarAudit as Record<string, unknown>)
             }
-            toast.success("On-Chain Audit Sealed", {
-              description: `Hash: ${blockchainKey.slice(0, 12)}...`,
-            })
+            if (data.onChain === true && blockchainKey) {
+              toast.success("On-Chain Audit Sealed", { description: `Hash: ${blockchainKey.slice(0, 12)}...` })
+            } else {
+              toast.info("Despacho registrado; auditoría en cadena no confirmada")
+            }
           }
         })
         .catch((bcError) => {
@@ -194,7 +173,7 @@ export function IncidentDispatchCard({
                     <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75 animate-pulse-ring" />
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-400" />
                   </span>
-                  <span className="font-bold text-indigo-200 text-sm truncate">Stellar / RISC Zero Audit</span>
+                  <span className="font-bold text-indigo-200 text-sm truncate">Verificación ZK</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button type="button" className="shrink-0 text-indigo-400/60 hover:text-indigo-300 transition-colors">
@@ -202,27 +181,25 @@ export function IncidentDispatchCard({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[220px] text-center leading-relaxed">
-                      Cryptographic proof certifying that the dispatch is valid and immutable on Stellar.
+                      Verificación de pertenencia a la zona del reporte ciudadano. No certifica por sí sola el despacho.
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                {(stellarAudit.isSimulated as boolean) && (
-                  <span className="shrink-0 text-[9px] px-2 py-0.5 rounded bg-yellow-500/15 text-yellow-300 border border-yellow-500/30 font-medium">SIMULATED</span>
-                )}
+                <span className="shrink-0 text-[9px] px-2 py-0.5 rounded bg-yellow-500/15 text-yellow-300 border border-yellow-500/30 font-medium">{stellarAudit.onChain === true && stellarAudit.txHash ? "ON-CHAIN" : stellarAudit.verified === true ? "LOCAL" : "PENDIENTE"}</span>
               </div>
 
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-indigo-300/50 font-medium">Verifiable hash</p>
+                <p className="text-[10px] uppercase tracking-wider text-indigo-300/50 font-medium">Identificador de verificación</p>
                 <p className="font-mono text-indigo-200/80 break-all text-[11px] leading-relaxed">
                   {(stellarAudit.hash as string)?.slice(0, 36)}...
                 </p>
               </div>
 
               <a
-                href={`/stellar-auditoria?seal=${stellarAudit.seal}&imageId=${stellarAudit.imageId}&journal=${stellarAudit.journalDigest}`}
+                href={`/seguimiento/${incident.id}`}
                 className="inline-flex items-center gap-1 text-indigo-300 hover:text-indigo-200 font-medium"
               >
-                View proof on Soroban verifier →
+                Ver seguimiento y auditoría →
               </a>
             </div>
           )}
@@ -239,7 +216,7 @@ export function IncidentDispatchCard({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[220px] text-center leading-relaxed">
-                      Permanent dispatch record on blockchain for historical traceability.
+                      Registro de despacho en Arkiv con una vigencia inicial de siete días.
                     </TooltipContent>
                   </Tooltip>
                   <span className="font-mono truncate">{arkivKey.slice(0, 12)}...{arkivKey.slice(-6)}</span>

@@ -153,6 +153,8 @@ export interface EmergencyIncident {
 
 export interface ArkivDispatchResponse {
   success: boolean
+  onChain?: boolean
+  isSimulated?: boolean
   entityKey?: string
   stellarAudit?: Record<string, unknown>
   error?: string

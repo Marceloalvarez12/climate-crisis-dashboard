@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server"
 import * as crypto from "crypto"
+import { requireStaff } from "@/lib/supabase-auth"
 import { ZkService } from "@/lib/services/zk-service"
 import { StellarService } from "@/lib/services/stellar-service"
 import { apiSuccess, apiError, apiValidationError } from "@/lib/services/api-response"
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     const dryRun = new URL(request.url).searchParams.get("dryRun") === "true"
     if (dryRun && process.env.NODE_ENV !== "development") return apiError("No disponible", 403)
+    if (dryRun && !(await hasOperatorAccess(request))) return apiError("No autorizado", 401)
 
     const params = parsed.data
     if (params.lat < -27 || params.lat > -26.5 || params.lng < -65.5 || params.lng > -65) {
@@ -168,5 +170,21 @@ export async function POST(request: NextRequest): Promise<Response> {
     const message = error instanceof Error ? error.message : "ZK report failed"
     console.error("[ZK Report] Error:", message)
     return apiError(message === "ZK_ARTIFACTS_UNAVAILABLE" ? "Verificación de ubicación no disponible" : "No se pudo procesar el reporte", 503)
+  }
+}
+
+async function hasOperatorAccess(request: NextRequest): Promise<boolean> {
+  const supplied = request.headers.get("x-api-secret")
+  const configured = process.env.API_SECRET
+  if (supplied && configured) {
+    const left = Buffer.from(supplied)
+    const right = Buffer.from(configured)
+    if (left.length === right.length && crypto.timingSafeEqual(left, right)) return true
+  }
+  try {
+    await requireStaff()
+    return true
+  } catch {
+    return false
   }
 }

@@ -1,5 +1,6 @@
 import * as fs from "fs"
 import * as path from "path"
+import { createHash } from "crypto"
 
 import * as snarkjs from "snarkjs"
 
@@ -56,6 +57,11 @@ function zkProofPaths(): { wasm: string; zkey: string } {
 const VK_PATH = path.join(/*turbopackIgnore: true*/ process.cwd(), "zk", "build", "verification_key.json")
 
 export class ZkService {
+  static verificationKeyHash(): string | null {
+    if (!fs.existsSync(VK_PATH)) return null
+    return createHash("sha256").update(fs.readFileSync(VK_PATH)).digest("hex")
+  }
+
   static encodeCoord(lat: number, lng: number): { lat: number; lng: number } {
     return {
       lat: realToZkCoord(lat, LAT_OFFSET),

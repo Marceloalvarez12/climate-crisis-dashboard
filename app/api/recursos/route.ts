@@ -6,7 +6,7 @@ import { calculateEstado } from "@/lib/resource-helpers"
 import { requireStaff } from "@/lib/supabase-auth"
 import type { DbResource } from "@/lib/types"
 
-const RESOURCE_COLS = "id, tipo, nombre, cantidad, cantidad_disponible, estado, ubicacion"
+const RESOURCE_COLS = "id, tipo, nombre, cantidad, cantidad_disponible, estado, ubicacion, incidente_id, updated_at"
 
 export async function GET() {
   try {
@@ -22,10 +22,11 @@ export async function GET() {
     if (result.error) {
       const fallback = await supabase
         .from("recursos")
-        .select("id, tipo, nombre, estado, ubicacion")
+        .select("id, tipo, nombre, estado, ubicacion, incidente_id, updated_at")
+        .neq("estado", "retired")
         .order("tipo", { ascending: true })
       if (fallback.error) return apiError(fallback.error.message)
-      data = (fallback.data ?? []).map(r => ({ ...r, cantidad: 1, cantidad_disponible: 1 }))
+      data = (fallback.data ?? []).map(r => ({ ...r, cantidad: 1, cantidad_disponible: r.estado === "available" ? 1 : 0 }))
     }
 
     const resources = (data ?? []).map(r => ({
@@ -75,6 +76,14 @@ export async function PATCH(request: NextRequest) {
       if (!isEdit && !["admin", "operador"].includes(profile.rol)) return apiError("Acceso denegado", 403)
     } catch { return apiError("Acceso denegado", 403) }
 
+    if (estado === "dispatched") {
+      if (cantidad !== undefined || cantidad_disponible !== undefined) return apiValidationError("El despacho y la edición de cantidades requieren acciones separadas")
+      if (!incidente_id) return apiValidationError("Se requiere un incidente para despachar el recurso")
+      const { data: incident, error } = await supabase.from("incidentes").select("id").eq("id", incidente_id).maybeSingle()
+      if (error) return apiError("No se pudo consultar el incidente", 503)
+      if (!incident) return apiValidationError("El incidente no existe")
+    }
+
     const updatePayload: Partial<DbResource> = { updated_at: new Date().toISOString() }
     if (estado !== undefined) updatePayload.estado = estado
     if (incidente_id !== undefined) updatePayload.incidente_id = incidente_id
@@ -94,14 +103,18 @@ export async function PATCH(request: NextRequest) {
       updatePayload.estado = calculateEstado(total, updatePayload.cantidad_disponible)
     }
 
-    const { data, error } = await supabase
+    let updateQuery = supabase
       .from("recursos")
       .update(updatePayload)
       .eq("id", id)
+    // Compare-and-set prevents two operators from claiming the same row.
+    if (estado === "dispatched") updateQuery = updateQuery.eq("estado", "available")
+    const { data, error } = await updateQuery
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) return apiError(error.message)
+    if (!data) return apiError("El recurso ya no está disponible o no existe. Actualizá la selección.", 409)
     return apiSuccess(data)
   } catch (err) {
     return apiError(err instanceof Error ? err.message : "Error interno")

@@ -40,12 +40,7 @@ export async function GET(
       return apiSuccess(await resolveOnChainEntity(entity, key))
     }
 
-    const dbIncident = await findIncidentByKey(key)
-    if (dbIncident) {
-      return apiSuccess(buildSimulatedResponse(dbIncident, key))
-    }
-
-    return apiNotFound("Entity not found on-chain or in local database")
+    return apiNotFound("Entidad no confirmada en Arkiv (puede haber expirado)")
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error"
     console.error("[Arkiv Verify] Error:", message)
@@ -76,12 +71,12 @@ async function resolveOnChainEntity(entity: ArkivEntity, key: string): Promise<V
 
   if (payload.action === "dispatch" && payload.detectionKey) {
     relation = "dispatch_to_detection"
-    linkedEntity = await resolveLinkedEntity(payload.detectionKey as string, true)
+    linkedEntity = await resolveLinkedEntity(payload.detectionKey as string)
   } else {
     const dbIncident = await findIncidentByKey(key)
     if (dbIncident?.fuente_detalles?.arkiv_entity_key && dbIncident.fuente_detalles.arkiv_entity_key !== key) {
       relation = "detection_to_dispatch"
-      linkedEntity = await resolveLinkedEntity(dbIncident.fuente_detalles.arkiv_entity_key as string, false)
+      linkedEntity = await resolveLinkedEntity(dbIncident.fuente_detalles.arkiv_entity_key as string)
     }
   }
 
@@ -97,7 +92,7 @@ async function resolveOnChainEntity(entity: ArkivEntity, key: string): Promise<V
   }
 }
 
-async function resolveLinkedEntity(linkedKey: string, isLinkedDetection: boolean): Promise<LinkedEntityData | null> {
+async function resolveLinkedEntity(linkedKey: string): Promise<LinkedEntityData | null> {
   if (!ArkivService.isValidEntityKey(linkedKey)) return null
 
   const entity = await ArkivService.getEntity(linkedKey)
@@ -110,19 +105,7 @@ async function resolveLinkedEntity(linkedKey: string, isLinkedDetection: boolean
     }
   }
 
-  const dbIncident = await findIncidentByKey(linkedKey)
-  if (!dbIncident) return null
-
-  return {
-    key: linkedKey,
-    creator: isLinkedDetection
-      ? "0xSimulatedAIAgent0000000000000000000000"
-      : "0xSimulatedOperatorAccount0000000000000000",
-    expiresAtBlock: "999999 (Simulación)",
-    payload: isLinkedDetection
-      ? buildSimulatedDetectionPayload(dbIncident)
-      : buildSimulatedDispatchPayload(dbIncident, linkedKey),
-  }
+  return null
 }
 
 async function findIncidentByKey(key: string): Promise<DbIncident | null> {
@@ -133,80 +116,4 @@ async function findIncidentByKey(key: string): Promise<DbIncident | null> {
     .maybeSingle()
 
   return data
-}
-
-function buildSimulatedResponse(incident: DbIncident, key: string): VerifyResponse {
-  const detectionKey = (incident.fuente_detalles?.ai_analysis as Record<string, unknown>)?.arkiv_entity_key as string
-    || incident.fuente_detalles?.detection_arkiv_key as string
-    || `0xSimulatedDetectionKey-${incident.id}`
-
-  const dispatchKey = incident.fuente_detalles?.arkiv_entity_key as string
-    || `0xSimulatedDispatchKey-${incident.id}`
-
-  const isQueryingDetection = key === detectionKey ||
-    (incident.fuente_detalles?.ai_analysis as Record<string, unknown>)?.arkiv_entity_key === key
-
-  let linkedEntity: LinkedEntityData | null = null
-  let relation: RelationType = null
-
-  if (incident.estado === "atendido") {
-    relation = isQueryingDetection ? "detection_to_dispatch" : "dispatch_to_detection"
-    const linkedKey = isQueryingDetection ? dispatchKey : detectionKey
-
-    linkedEntity = {
-      key: linkedKey,
-      creator: isQueryingDetection
-        ? "0xSimulatedOperatorAccount0000000000000000"
-        : "0xSimulatedAIAgent0000000000000000000000",
-      expiresAtBlock: "999999 (Simulación)",
-      payload: isQueryingDetection
-        ? buildSimulatedDispatchPayload(incident, detectionKey)
-        : buildSimulatedDetectionPayload(incident),
-    }
-  }
-
-  return {
-    success: true,
-    key,
-    creator: isQueryingDetection
-      ? "0xSimulatedAIAgent0000000000000000000000"
-      : "0xSimulatedOperatorAccount0000000000000000",
-    expiresAtBlock: "999999 (Simulación)",
-    payload: isQueryingDetection
-      ? buildSimulatedDetectionPayload(incident)
-      : buildSimulatedDispatchPayload(incident, detectionKey),
-    linkedEntity,
-    relation,
-    isSimulated: true,
-  }
-}
-
-function buildSimulatedDetectionPayload(incident: DbIncident): Record<string, unknown> {
-  const aiAnalysis = incident.fuente_detalles?.ai_analysis as Record<string, unknown> | undefined
-  return {
-    agent: "Gemini 2.0 Flash (Simulado)",
-    task: "Real-time Climate Crisis Monitoring",
-    location: incident.ubicacion,
-    type: incident.tipo,
-    severity: incident.severidad,
-    summary: incident.fuente_detalles?.content || "Detección automática de la IA",
-    confidence: aiAnalysis?.confidence || 90,
-    scannedAt: incident.created_at,
-    simulated: true,
-  }
-}
-
-function buildSimulatedDispatchPayload(incident: DbIncident, detectionKey: string): Record<string, unknown> {
-  return {
-    action: "dispatch",
-    incidentId: incident.id,
-    detectionKey,
-    tipo: incident.tipo,
-    severidad: incident.severidad,
-    ubicacion: incident.ubicacion,
-    afectados: incident.personas_afectadas,
-    operator: "0xSimulatedOperatorAccount0000000000000000",
-    dispatchedAt: incident.fuente_detalles?.dispatched_at || incident.updated_at,
-    simulated: true,
-  }
 }

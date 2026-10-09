@@ -1,5 +1,8 @@
 import { z } from "zod"
 
+// Other client-supplied incident fields are ignored; dispatch uses the DB row.
+export const IncidentDispatchSchema = z.object({ id: z.string().uuid() })
+
 export const IncidentCreateSchema = z.object({
   tipo: z.enum(["flood", "fire", "storm", "looting", "violence", "accident", "general"]),
   severidad: z.enum(["critical", "high", "medium", "low"]).default("medium"),

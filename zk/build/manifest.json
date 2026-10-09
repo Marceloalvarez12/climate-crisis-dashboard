@@ -1,0 +1,25 @@
+{
+  "protocol": "groth16",
+  "curve": "bn128",
+  "setup": "single-party-local",
+  "generatedAt": "2026-10-09T01:37:28.537Z",
+  "tools": {
+    "circom2": "0.2.22",
+    "circomlib": "2.0.5"
+  },
+  "publicSignals": [
+    "out",
+    "minLat",
+    "maxLat",
+    "minLng",
+    "maxLng",
+    "zoneHash"
+  ],
+  "sha256": {
+    "zk/build/zone_membership_js/zone_membership.wasm": "92bdf0bac92d45310ae8845a80ee42f4e8fd7f38439a35217be5f73daeb340e1",
+    "zk/build/zone_membership_final.zkey": "9a34601ce8e46f038b35e880107841cb28f74cbd1f5df7137e774be2da3d43d8",
+    "zk/build/verification_key.json": "dc4732a88ee084afe414f1761628ea5a7dd412544260e3e944ff9b5fbed99b2d",
+    "zk/circuits/zone_membership.circom": "a203574050c5cbb8e2238a2e4f6940e3014572dd76d40373d97b122a28f5923a",
+    "zk/contracts/zone_verifier/src/verification_key.rs": "af052efc7876f2e83f2a373b64a203bdd9e92d983acdea7ef6c4b6fda043a501"
+  }
+}

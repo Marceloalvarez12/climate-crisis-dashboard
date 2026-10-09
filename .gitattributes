@@ -1,0 +1,5 @@
+zk/build/*.json text eol=lf
+zk/build/**/*.wasm binary
+zk/build/*.zkey binary
+zk/circuits/*.circom text eol=lf
+zk/contracts/zone_verifier/src/verification_key.rs text eol=lf

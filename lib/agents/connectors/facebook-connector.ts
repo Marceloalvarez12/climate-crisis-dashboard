@@ -38,7 +38,7 @@ export class FacebookConnector extends SocialConnector {
     return false
   }
 
-  async fetchPosts(options: ConnectorOptions): Promise<SocialPost[]> {
+  async fetchPosts(_options: ConnectorOptions): Promise<SocialPost[]> {
     if (!this.isConfigured()) {
       throw new Error("Facebook connector no configurado: falta FACEBOOK_ACCESS_TOKEN en .env.local")
     }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { Users, Clock, MapPinned, Twitter, Facebook, Instagram, Hash, Repeat2, Send, Phone, CheckCircle2, Truck, ShieldAlert, ShieldCheck, Loader2, ExternalLink, FileText } from "lucide-react"
+import { Users, Clock, MapPinned, Twitter, Facebook, Instagram, Hash, Repeat2, Send, CheckCircle2, Truck, ShieldAlert, ShieldCheck, Loader2, ExternalLink, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -40,7 +40,7 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
   const [data, setData] = useState<{
     creator: string
     expiresAtBlock: string | null
-    payload: any
+    payload: Record<string, unknown>
     isSimulated?: boolean
   } | null>(null)
 
@@ -63,7 +63,7 @@ function OnChainVerifier({ arkivKey }: OnChainVerifierProps) {
         } else {
           setError(json.error || "Could not retrieve information from the blockchain.")
         }
-      } catch (err) {
+      } catch {
         if (!active) return
         setError("Network error while trying to verify the on-chain status.")
       } finally {

@@ -1,6 +1,6 @@
 pragma circom 2.0.0;
 
-include "../circomlib/circuits/comparators.circom";
+include "circomlib/circuits/comparators.circom";
 
 /**
  * ZoneMembership: prueba que (lat, lng) cae dentro de un rectangulo
@@ -27,6 +27,21 @@ template ZoneMembership(nBits) {
     signal input zoneHash;
 
     signal output out;
+
+    // Comparators require bounded unsigned inputs; prevent field wraparound.
+    component ranges[6];
+    ranges[0] = Num2Bits(nBits);
+    ranges[0].in <== lat;
+    ranges[1] = Num2Bits(nBits);
+    ranges[1].in <== lng;
+    ranges[2] = Num2Bits(nBits);
+    ranges[2].in <== minLat;
+    ranges[3] = Num2Bits(nBits);
+    ranges[3].in <== maxLat;
+    ranges[4] = Num2Bits(nBits);
+    ranges[4].in <== minLng;
+    ranges[5] = Num2Bits(nBits);
+    ranges[5].in <== maxLng;
 
     // minLat <= lat <= maxLat
     component geMinLat = GreaterEqThan(nBits);

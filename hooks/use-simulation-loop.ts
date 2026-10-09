@@ -11,6 +11,7 @@ import {
 import { fetchRecursos, patchRecurso, patchIncidente, createZkCitizenReport, postSocialMention } from "@/lib/api"
 import { buildSimulatedPost, type SimulatedPostPayload } from "@/lib/social-feed-simulator"
 import type { MentionOutcome } from "@/lib/agents/types"
+import type { DbIncident } from "@/lib/types"
 
 const MAX_ACTIVE_SIMULATED_INCIDENTS = 5
 const AUTO_RESOLVE_UNATTENDED_MS = 120_000
@@ -158,10 +159,10 @@ export function useSimulationLoop() {
   const cleanupSimulatedIncidents = useCallback(async () => {
     try {
       const res = await fetch("/api/incidentes?estado=activo")
-      const data = await res.json()
-      const simulated = (Array.isArray(data) ? data : []).filter((i: any) => i.fuente_detalles?.simulated)
+      const data: DbIncident[] = await res.json()
+      const simulated = (Array.isArray(data) ? data : []).filter((i) => i.fuente_detalles?.simulated)
       await Promise.all(
-        simulated.map((i: any) =>
+        simulated.map((i) =>
           fetch("/api/incidentes", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
@@ -232,8 +233,8 @@ export function useSimulationLoop() {
 
           // 2. Incidente → atendido (Firma on-chain)
           try {
-            const incidentes = await fetch("/api/incidentes?estado=activo").then((res) => res.json())
-            const incident = Array.isArray(incidentes) ? incidentes.find((i: any) => i.id === incidentId) : null
+            const incidentes: DbIncident[] = await fetch("/api/incidentes?estado=activo").then((res) => res.json())
+            const incident = Array.isArray(incidentes) ? incidentes.find((i) => i.id === incidentId) : null
             if (incident) {
               const response = await fetch("/api/incidentes/arkiv-dispatch", {
                 method: "POST",
@@ -291,7 +292,6 @@ export function useSimulationLoop() {
 
       dispatchTimersRef.current.set(available.id, timer)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [mutate, addEvent],
   )
 
@@ -317,10 +317,11 @@ export function useSimulationLoop() {
 
   // Cleanup al desmontar
   useEffect(() => {
+    const dispatchTimers = dispatchTimersRef.current
     return () => {
       if (spawnTimerRef.current) clearInterval(spawnTimerRef.current)
-      dispatchTimersRef.current.forEach((t) => clearTimeout(t))
-      dispatchTimersRef.current.clear()
+      dispatchTimers.forEach((t) => clearTimeout(t))
+      dispatchTimers.clear()
     }
   }, [])
 
